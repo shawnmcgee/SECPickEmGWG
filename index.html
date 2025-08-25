@@ -828,19 +828,19 @@
 		  container.innerHTML = `<div class="loading">Loading Week ${currentWeek} games…</div>`;
 		
 		  try {
-		    const days = weekDaysISO(currentWeek).join(',');
-		    const resp = await fetch(`${BACKEND_BASE || ''}/api/games?days=${encodeURIComponent(days)}`, { cache: 'no-store' });
+		    // Backend already figures out the date range for the week
+		    const resp = await fetch(`${BACKEND_BASE || ''}/api/games?week=${currentWeek}`, { cache: 'no-store' });
 		    if (!resp.ok) throw new Error(`Backend error ${resp.status}`);
 		
-		    // Your backend should return raw Odds-API games (merged across days)
-		    const raw = await resp.json();
+		    const { games } = await resp.json();  // <-- your backend returns { week, games }
+		    if (!Array.isArray(games) || games.length === 0) {
+		      throw new Error('No games returned for this week');
+		    }
 		
-		    const secOnly = raw.filter(g => isSEC(g.home_team) || isSEC(g.away_team));
-		    const transformed = transformAPIGames(secOnly);
-		
-		    gameData[`week${currentWeek}`] = transformed;
+		    // Overwrite whatever is in localStorage for this week
+		    gameData[`week${currentWeek}`] = games;
 		    saveToStorage();
-		    displayGames(transformed);
+		    displayGames(games);
 		    showToast('Loaded current week from API ✅');
 		  } catch (err) {
 		    console.error(err);
@@ -1312,6 +1312,7 @@
     </script>
 </body>
 </html>
+
 
 
 
