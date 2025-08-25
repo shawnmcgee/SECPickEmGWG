@@ -660,45 +660,6 @@
 
         <div class="main-content">
             <div class="games-section">
-                <div class="manual-entry">
-                    <h3>Add Game Manually</h3>
-                    <div class="manual-entry-form">
-                        <input type="text" id="awayTeam" placeholder="Away Team" list="teamsList">
-                        <input type="text" id="homeTeam" placeholder="Home Team" list="teamsList">
-                        <input type="number" id="spreadValue" placeholder="Home Spread" step="0.5">
-                        <input type="number" id="totalValue" placeholder="Total Points" step="0.5">
-                        <input type="date" id="gameDate" value="2025-08-30">
-                        <input type="time" id="gameTime" value="19:00">
-                        <button onclick="addManualGame()">Add Game</button>
-                    </div>
-                    <datalist id="teamsList">
-                        <option value="Alabama">
-                        <option value="Arkansas">
-                        <option value="Auburn">
-                        <option value="Florida">
-                        <option value="Georgia">
-                        <option value="Kentucky">
-                        <option value="LSU">
-                        <option value="Ole Miss">
-                        <option value="Mississippi State">
-                        <option value="Missouri">
-                        <option value="Oklahoma">
-                        <option value="South Carolina">
-                        <option value="Tennessee">
-                        <option value="Texas">
-                        <option value="Texas A&M">
-                        <option value="Vanderbilt">
-                        <option value="Clemson">
-                        <option value="Florida State">
-                        <option value="Miami">
-                        <option value="Georgia Tech">
-                        <option value="Notre Dame">
-                        <option value="USC">
-                        <option value="Ohio State">
-                        <option value="Michigan">
-                        <option value="Penn State">
-                    </datalist>
-                </div>
                 <div id="gamesList"></div>
                 <button class="submit-picks" id="submitPicks">Submit Picks</button>
             </div>
@@ -739,23 +700,47 @@
 
         // 2025 Week 1 Default Games (if API fails)
         const WEEK_1_2025_GAMES = [
-            { away: 'Western Kentucky', home: 'Alabama', spread: -35, total: 58, date: '2025-08-30', time: '19:00' },
-            { away: 'UTEP', home: 'Tennessee', spread: -42, total: 62, date: '2025-08-30', time: '15:30' },
-            { away: 'Miami (OH)', home: 'Kentucky', spread: -28, total: 52, date: '2025-08-31', time: '12:00' },
-            { away: 'Clemson', home: 'Georgia', spread: 12, total: 54, date: '2025-08-31', time: '12:00' },
-            { away: 'Colorado State', home: 'Texas', spread: -38, total: 61, date: '2025-08-31', time: '15:30' },
-            { away: 'Notre Dame', home: 'Texas A&M', spread: 3, total: 49, date: '2025-08-30', time: '19:30' },
-            { away: 'Florida State', home: 'Florida', spread: -2.5, total: 55, date: '2025-08-30', time: '19:30' },
-            { away: 'USC', home: 'LSU', spread: 4, total: 64, date: '2025-08-31', time: '19:30' },
-            { away: 'South Carolina', home: 'NC State', spread: 7, total: 48, date: '2025-08-30', time: '12:00' },
-            { away: 'Temple', home: 'Oklahoma', spread: -40, total: 59, date: '2025-08-30', time: '19:00' },
-            { away: 'Missouri', home: 'Ohio State', spread: 14, total: 58, date: '2025-08-30', time: '20:00' },
-            { away: 'Virginia Tech', home: 'Vanderbilt', spread: -7, total: 51, date: '2025-08-30', time: '12:00' },
-            { away: 'Ole Miss', home: 'Georgia Tech', spread: -18, total: 63, date: '2025-08-29', time: '20:00' },
-            { away: 'Alabama A&M', home: 'Auburn', spread: -45, total: 56, date: '2025-08-30', time: '19:30' },
-            { away: 'UAPB', home: 'Arkansas', spread: -49, total: 60, date: '2025-08-28', time: '19:30' },
-            { away: 'Furman', home: 'Mississippi State', spread: -31, total: 55, date: '2025-08-30', time: '16:00' }
-        ];
+		  { away: 'Texas',            home: 'Ohio State',        date: '2025-08-30', time: '12:00', spread: 0,  total: 50 }, // FOX noon
+		  { away: 'Auburn',           home: 'Baylor',            date: '2025-08-29', time: '20:00', spread: 0,  total: 50 }, // Fri
+		  { away: 'South Carolina',   home: 'Virginia Tech',     date: '2025-08-31', time: '15:00', spread: 0,  total: 50 }, // ATL (Aflac)
+		  { away: 'Alabama',          home: 'Florida State',     date: '2025-08-30', time: '15:30', spread: 0,  total: 50 },
+		  { away: 'Marshall',         home: 'Georgia',           date: '2025-08-30', time: '15:30', spread: 0,  total: 50 },
+		  { away: 'UTSA',             home: 'Texas A&M',         date: '2025-08-30', time: '19:00', spread: 0,  total: 50 },
+		  { away: 'Charleston Southern', home: 'Vanderbilt',     date: '2025-08-30', time: '19:00', spread: 0,  total: 50 },
+		  { away: 'Toledo',           home: 'Kentucky',          date: '2025-08-30', time: '12:45', spread: 0,  total: 50 },
+		  { away: 'Central Arkansas', home: 'Missouri',          date: '2025-08-28', time: '19:30', spread: 0,  total: 50 }, // Thu
+		  { away: 'Georgia State',    home: 'Ole Miss',          date: '2025-08-30', time: '19:45', spread: 0,  total: 50 },
+		  { away: 'Mississippi State',home: 'Southern Miss',     date: '2025-08-30', time: '12:00', spread: 0,  total: 50 }, // MSU @ USM
+		  { away: 'Alabama A&M',      home: 'Arkansas',          date: '2025-08-30', time: '15:15', spread: 0,  total: 50 },
+		  { away: 'LIU',              home: 'Florida',           date: '2025-08-30', time: '19:00', spread: 0,  total: 50 },
+		  { away: 'Illinois State',   home: 'Oklahoma',          date: '2025-08-30', time: '18:00', spread: 0,  total: 50 },
+		  { away: 'Syracuse',         home: 'Tennessee',         date: '2025-08-30', time: '12:00', spread: 0,  total: 50 }, // ATL (Aflac)
+		];
+
+		const SEC_CANON = [
+		  'Alabama','Arkansas','Auburn','Florida','Georgia',
+		  'Kentucky','LSU','Ole Miss','Mississippi State','Missouri',
+		  'Oklahoma','South Carolina','Tennessee','Texas','Texas A&M','Vanderbilt'
+		];
+
+		const TEAM_ALIASES = {
+		  'Alabama': [/^Alabama\b/i, /\bCrimson Tide\b/i],
+		  'Arkansas': [/^Arkansas\b/i, /\bRazorbacks\b/i],
+		  'Auburn': [/^Auburn\b/i, /\bTigers\b/i],
+		  'Florida': [/^Florida\b/i, /\bGators\b/i],
+		  'Georgia': [/^Georgia\b/i, /\bBulldogs\b/i],
+		  'Kentucky': [/^Kentucky\b/i, /\bWildcats\b/i],
+		  'LSU': [/^LSU\b/i, /\bLouisiana State\b/i, /\bTigers\b/i],
+		  'Ole Miss': [/^Ole Miss\b/i, /^Mississippi\b(?! State)/i, /\bRebels\b/i],
+		  'Mississippi State': [/^Mississippi State\b/i, /\bMiss State\b/i, /\bBulldogs\b/i],
+		  'Missouri': [/^Missouri\b/i, /\bMizzou\b/i, /\bTigers\b/i],
+		  'Oklahoma': [/^Oklahoma\b/i, /\bSooners\b/i],
+		  'South Carolina': [/^South Carolina\b/i, /\bGamecocks\b/i],
+		  'Tennessee': [/^Tennessee\b/i, /\bVolunteers\b/i],
+		  'Texas A&M': [/^Texas A&M\b/i, /\bAggies\b/i],
+		  'Texas': [/^Texas(?! A&M)\b/i, /\bLonghorns\b/i],
+		  'Vanderbilt': [/^Vanderbilt\b/i, /\bCommodores\b/i],
+		};
 
         // App State
         let currentUser = null;
@@ -830,91 +815,87 @@
             }
         }
 
+		function weekDaysISO(week) {
+		  const start = new Date(SEASON_START.getTime() + (week - 1) * 7 * 24 * 3600 * 1000);
+		  // Use simple 4-day window Thu–Sun for CFB opening week
+		  return Array.from({ length: 4 }, (_, i) => {
+		    const d = new Date(start.getTime() + i * 24 * 3600 * 1000);
+		    return d.toISOString().slice(0, 10);
+		  });
+		}
+
         // Try to load from API (will work when saved locally)
         async function tryAPILoad() {
-            const resp = await fetch(`${BACKEND_BASE}/api/games?week=${currentWeek}`);
-            container.innerHTML = '<div class="loading">Attempting to load from API...</div>';
-            
-            try {
-				const todayISO = new Date().toISOString().split("T")[0];
-                const response = await fetch(
-                    `${ODDS_API_BASE}/sports/americanfootball_ncaaf/odds/?apiKey=${API_KEY}&regions=us&markets=spreads,totals&oddsFormat=american&dateFormat=iso&date=${todayISO}`
-                );
-
-                if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                
-                // Filter for SEC games
-                const secGames = data.filter(game => {
-                    const homeTeam = game.home_team;
-                    const awayTeam = game.away_team;
-                    return SEC_TEAMS.some(team => 
-                        homeTeam.includes(team) || awayTeam.includes(team)
-                    );
-                });
-
-                if (secGames.length > 0) {
-                    const transformedGames = transformAPIGames(secGames);
-                    gameData[`week${currentWeek}`] = transformedGames;
-                    saveToStorage();
-                    displayGames(transformedGames);
-                    showToast('Successfully loaded games from API!');
-                } else {
-                    loadDefaultGames();
-                }
-            } catch (error) {
-                console.error('API Error:', error);
-                showToast('API blocked by browser. Using manual mode. Save file locally to enable API.');
-                loadDefaultGames();
-            }
-        }
+		  const container = document.getElementById('gamesList');
+		  container.innerHTML = `<div class="loading">Loading Week ${currentWeek} games…</div>`;
+		
+		  try {
+		    const days = weekDaysISO(currentWeek).join(',');
+		    const resp = await fetch(`${BACKEND_BASE || ''}/api/games?days=${encodeURIComponent(days)}`, { cache: 'no-store' });
+		    if (!resp.ok) throw new Error(`Backend error ${resp.status}`);
+		
+		    // Your backend should return raw Odds-API games (merged across days)
+		    const raw = await resp.json();
+		
+		    const secOnly = raw.filter(g => isSEC(g.home_team) || isSEC(g.away_team));
+		    const transformed = transformAPIGames(secOnly);
+		
+		    gameData[`week${currentWeek}`] = transformed;
+		    saveToStorage();
+		    displayGames(transformed);
+		    showToast('Loaded current week from API ✅');
+		  } catch (err) {
+		    console.error(err);
+		    showToast('Couldn’t load from API. Using fallback list.');
+		    loadDefaultGames();
+		  }
+		}
 
         function transformAPIGames(apiGames) {
             return apiGames.map(game => {
-                const gameDate = new Date(game.commence_time);
-                const bookmaker = game.bookmakers?.[0];
-                let spread = 0;
-                let total = 50;
-                
-                if (bookmaker && bookmaker.markets) {
-                    const spreadMarket = bookmaker.markets.find(m => m.key === 'spreads');
-                    const totalMarket = bookmaker.markets.find(m => m.key === 'totals');
-                    
-                    if (spreadMarket && spreadMarket.outcomes) {
-                        const homeOutcome = spreadMarket.outcomes.find(o => o.name === game.home_team);
-                        if (homeOutcome) {
-                            spread = homeOutcome.point;
-                        }
-                    }
-                    
-                    if (totalMarket && totalMarket.outcomes && totalMarket.outcomes[0]) {
-                        total = totalMarket.outcomes[0].point;
-                    }
-                }
+			    const gameDate = new Date(game.commence_time);
+			    const bookmaker = game.bookmakers?.[0];
+			    let spread = 0, total = 50;
+			
+			    if (bookmaker?.markets) {
+			      const spreadMarket = bookmaker.markets.find(m => m.key === 'spreads');
+			      const totalMarket  = bookmaker.markets.find(m => m.key === 'totals');
+			
+			      if (spreadMarket?.outcomes) {
+			        const homeOutcome = spreadMarket.outcomes.find(o => o.name === game.home_team);
+			        if (typeof homeOutcome?.point === 'number') spread = homeOutcome.point;
+			      }
+			      if (totalMarket?.outcomes?.[0]?.point != null) {
+			        total = totalMarket.outcomes[0].point;
+			      }
+			    }
+			
+			    const homeCanon = canonicalizeTeam(game.home_team);
+			    const awayCanon = canonicalizeTeam(game.away_team);
+			
+			    return {
+			      id: game.id,
+			      home: homeCanon,
+			      away: awayCanon,
+			      spread,
+			      total,
+			      date: gameDate.toISOString().split('T')[0],
+			      time: gameDate.toTimeString().slice(0, 5),
+			      isOverUnder: homeCanon === 'South Carolina' || awayCanon === 'South Carolina',
+			      isSecMatchup: isSEC(homeCanon) && isSEC(awayCanon),
+			    };
+			  });
+			}
 
-                // Clean team names
-                const cleanTeamName = (name) => {
-                    for (let secTeam of SEC_TEAMS) {
-                        if (name.includes(secTeam)) return secTeam;
-                    }
-                    return name.replace(/\s*(Crimson Tide|Razorbacks|Tigers|Gators|Bulldogs|Wildcats|Rebels|Volunteers|Longhorns|Aggies|Commodores|Sooners|Gamecocks)$/i, '').trim();
-                };
-
-                return {
-                    id: game.id,
-                    home: cleanTeamName(game.home_team),
-                    away: cleanTeamName(game.away_team),
-                    spread: spread,
-                    total: total,
-                    date: gameDate.toISOString().split('T')[0],
-                    time: gameDate.toTimeString().slice(0, 5),
-                    isOverUnder: game.home_team.includes('South Carolina') || game.away_team.includes('South Carolina'),
-                    isSecMatchup: SEC_TEAMS.includes(cleanTeamName(game.home_team)) && SEC_TEAMS.includes(cleanTeamName(game.away_team))
-                };
-            });
+                function canonicalizeTeam(name) {
+				  for (const [canon, patterns] of Object.entries(TEAM_ALIASES)) {
+				    if (patterns.some(p => p.test(name))) return canon;
+				  }
+				  return name.trim();
+				}
+				function isSEC(name) {
+				  return SEC_CANON.includes(canonicalizeTeam(name));
+				}
         }
 
         function loadDefaultGames() {
@@ -1334,4 +1315,5 @@
     </script>
 </body>
 </html>
+
 
