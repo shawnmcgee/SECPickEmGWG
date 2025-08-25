@@ -690,8 +690,6 @@
         // 2025 Season Configuration
 		const BACKEND_BASE = ''; // same origin on Vercel
         const SEASON_START = new Date('2025-08-28'); // 2025 season start
-        const API_KEY = '0a4e05587227fea8e8fb9fe7bf795472';
-        const ODDS_API_BASE = 'https://api.the-odds-api.com/v4';
         
         // SEC Teams
         const SEC_TEAMS = ['Alabama', 'Arkansas', 'Auburn', 'Florida', 'Georgia', 
@@ -818,7 +816,7 @@
 		function weekDaysISO(week) {
 		  const start = new Date(SEASON_START.getTime() + (week - 1) * 7 * 24 * 3600 * 1000);
 		  // Use simple 4-day window Thu–Sun for CFB opening week
-		  return Array.from({ length: 4 }, (_, i) => {
+		  return Array.from({ length: 5 }, (_, i) => {
 		    const d = new Date(start.getTime() + i * 24 * 3600 * 1000);
 		    return d.toISOString().slice(0, 10);
 		  });
@@ -849,6 +847,16 @@
 		    showToast('Couldn’t load from API. Using fallback list.');
 		    loadDefaultGames();
 		  }
+		}
+
+		function canonicalizeTeam(name) {
+		  for (const [canon, patterns] of Object.entries(TEAM_ALIASES)) {
+			if (patterns.some(p => p.test(name))) return canon;
+		  }
+		  return name.trim();
+		}
+		function isSEC(name) {
+		  return SEC_CANON.includes(canonicalizeTeam(name));
 		}
 
         function transformAPIGames(apiGames) {
@@ -885,18 +893,7 @@
 			      isSecMatchup: isSEC(homeCanon) && isSEC(awayCanon),
 			    };
 			  });
-			}
-
-                function canonicalizeTeam(name) {
-				  for (const [canon, patterns] of Object.entries(TEAM_ALIASES)) {
-				    if (patterns.some(p => p.test(name))) return canon;
-				  }
-				  return name.trim();
-				}
-				function isSEC(name) {
-				  return SEC_CANON.includes(canonicalizeTeam(name));
-				}
-        }
+		}
 
         function loadDefaultGames() {
             if (!gameData[`week${currentWeek}`] || gameData[`week${currentWeek}`].length === 0) {
@@ -1315,5 +1312,6 @@
     </script>
 </body>
 </html>
+
 
 
