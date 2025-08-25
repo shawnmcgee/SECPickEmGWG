@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEC Football Pick'em League 2025</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #1a1a2e;
+            --secondary: #16213e;
+            --accent: #e94560;
+            --success: #0f4c75;
+            --text: #eaeaea;
+            --border: #3a3a5c;
+            --hover: #2a2a4e;
+            --gradient-start: #667eea;
+            --gradient-end: #764ba2;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--text);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .animated-bg {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            opacity: 0.05;
+            background-image: 
+                radial-gradient(circle at 20% 50%, var(--accent) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, var(--gradient-start) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, var(--gradient-end) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(30px, -30px) rotate(120deg); }
+            66% { transform: translate(-20px, 20px) rotate(240deg); }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid var(--accent);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(102, 126, 234, 0.5);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { filter: brightness(1); }
+            to { filter: brightness(1.2); }
+        }
+
+        .api-status {
+            background: rgba(233, 69, 96, 0.2);
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .api-status h3 {
+            margin-bottom: 10px;
+            color: var(--accent);
+        }
+
+        .api-status p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .api-status code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px 20px;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .week-selector {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 30px 0;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .week-selector button {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .week-selector button:hover:not(:disabled) {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .week-selector button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .games-section {
+            background: rgba(22, 33, 62, 0.6);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .manual-entry {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .manual-entry h3 {
+            margin-bottom: 15px;
+            color: var(--gradient-start);
+        }
+
+        .manual-entry-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .manual-entry input, .manual-entry select {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+        }
+
+        .manual-entry button {
+            grid-column: span 2;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .manual-entry button:hover {
+            transform: translateY(-2px);
+        }
+
+        .game-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .game-card.sec-matchup {
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.05));
+        }
+
+        .game-card.completed {
+            opacity: 0.8;
+            border: 2px solid rgba(15, 76, 117, 0.5);
+        }
+
+        .game-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.2);
+            border-color: var(--accent);
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .game-time {
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .delete-game {
+            background: rgba(233, 69, 96, 0.2);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .delete-game:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .final-badge {
+            background: var(--success);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .sec-badge {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .teams {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .team-option {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .team-option:hover:not(.disabled) {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(5px);
+        }
+
+        .team-option.selected {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+            border-color: var(--gradient-start);
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .team-option.winner {
+            background: linear-gradient(135deg, rgba(15, 76, 117, 0.3), rgba(15, 76, 117, 0.2));
+            border-color: var(--success);
+        }
+
+        .team-option.loser {
+            background: rgba(233, 69, 96, 0.1);
+            border-color: rgba(233, 69, 96, 0.3);
+        }
+
+        .team-option input[type="radio"] {
+            margin-right: 15px;
+            width: 20px;
+            height: 20px;
+            accent-color: var(--gradient-start);
+        }
+
+        .team-info {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .team-name {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .team-score {
+            font-size: 20px;
+            font-weight: bold;
+            margin-left: 15px;
+            color: var(--accent);
+        }
+
+        .spread {
+            background: rgba(233, 69, 96, 0.2);
+            color: var(--accent);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .spread-input {
+            width: 60px;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text);
+            text-align: center;
+        }
+
+        .ou-section {
+            background: linear-gradient(135deg, rgba(233, 69, 96, 0.1), rgba(233, 69, 96, 0.05));
+            border: 2px solid var(--accent);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 10px;
+        }
+
+        .ou-header {
+            text-align: center;
+            margin-bottom: 15px;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .ou-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .ou-option {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .ou-option:hover:not(.disabled) {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.05);
+        }
+
+        .ou-option.selected {
+            background: rgba(233, 69, 96, 0.2);
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+        }
+
+        .standings-section {
+            position: sticky;
+            top: 100px;
+            height: fit-content;
+        }
+
+        .standings-card {
+            background: rgba(22, 33, 62, 0.6);
+            border-radius: 20px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+        }
+
+        .standings-header {
+            font-size: 1.4em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--accent);
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .standings-list {
+            list-style: none;
+        }
+
+        .standing-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .standing-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(5px);
+            border-left-color: var(--accent);
+        }
+
+        .standing-item.current-user {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+            border-left-color: var(--gradient-start);
+            font-weight: 600;
+        }
+
+        .rank {
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .standing-name {
+            flex: 1;
+            margin: 0 15px;
+        }
+
+        .standing-record {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .submit-picks {
+            margin-top: 30px;
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-picks:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.6);
+        }
+
+        .login-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .login-form {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            padding: 40px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-form h2 {
+            margin-bottom: 30px;
+            text-align: center;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 16px;
+        }
+
+        .login-form button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .login-form button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(102, 126, 234, 0.5);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, var(--success), var(--gradient-start));
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+            z-index: 1001;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .standings-section {
+                position: static;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="animated-bg"></div>
+    
+    <header>
+        <div class="header-content">
+            <h1>🏈 SEC Pick'em League 2025</h1>
+            <div class="user-info">
+                <span id="username">Guest</span>
+                <button id="logoutBtn" style="display: none;">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="api-status">
+            <h3>⚠️ Manual Entry Mode</h3>
+            <p>Due to browser security restrictions, automatic API loading is blocked when running from Claude.</p>
+            <p><strong>To use automatic odds loading:</strong></p>
+            <p>1. Save this file to your computer as <code>pickem.html</code></p>
+            <p>2. Open the saved file in your browser (double-click it)</p>
+            <p>3. The API will work when running locally</p>
+            <p style="margin-top: 10px;"><strong>Or use manual entry below to add games for now:</strong></p>
+        </div>
+
+        <div class="week-selector">
+            <button id="prevWeek">← Previous</button>
+            <h2 id="currentWeek">Week 1</h2>
+            <button id="nextWeek">Next →</button>
+            <button id="loadApiBtn" style="margin-left: auto;">🔄 Try API Load</button>
+            <button id="updateScoresBtn">📊 Mark Winners</button>
+        </div>
+
+        <div class="main-content">
+            <div class="games-section">
+                <div class="manual-entry">
+                    <h3>Add Game Manually</h3>
+                    <div class="manual-entry-form">
+                        <input type="text" id="awayTeam" placeholder="Away Team" list="teamsList">
+                        <input type="text" id="homeTeam" placeholder="Home Team" list="teamsList">
+                        <input type="number" id="spreadValue" placeholder="Home Spread" step="0.5">
+                        <input type="number" id="totalValue" placeholder="Total Points" step="0.5">
+                        <input type="date" id="gameDate" value="2025-08-30">
+                        <input type="time" id="gameTime" value="19:00">
+                        <button onclick="addManualGame()">Add Game</button>
+                    </div>
+                    <datalist id="teamsList">
+                        <option value="Alabama">
+                        <option value="Arkansas">
+                        <option value="Auburn">
+                        <option value="Florida">
+                        <option value="Georgia">
+                        <option value="Kentucky">
+                        <option value="LSU">
+                        <option value="Ole Miss">
+                        <option value="Mississippi State">
+                        <option value="Missouri">
+                        <option value="Oklahoma">
+                        <option value="South Carolina">
+                        <option value="Tennessee">
+                        <option value="Texas">
+                        <option value="Texas A&M">
+                        <option value="Vanderbilt">
+                        <option value="Clemson">
+                        <option value="Florida State">
+                        <option value="Miami">
+                        <option value="Georgia Tech">
+                        <option value="Notre Dame">
+                        <option value="USC">
+                        <option value="Ohio State">
+                        <option value="Michigan">
+                        <option value="Penn State">
+                    </datalist>
+                </div>
+                <div id="gamesList"></div>
+                <button class="submit-picks" id="submitPicks">Submit Picks</button>
+            </div>
+
+            <div class="standings-section">
+                <div class="standings-card">
+                    <h3 class="standings-header">Week Standings</h3>
+                    <ul class="standings-list" id="weeklyStandings"></ul>
+                </div>
+
+                <div class="standings-card">
+                    <h3 class="standings-header">Season Standings</h3>
+                    <ul class="standings-list" id="seasonStandings"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="login-modal" id="loginModal">
+        <div class="login-form">
+            <h2>Enter Your Name</h2>
+            <input type="text" id="nameInput" placeholder="Your name" />
+            <button id="loginBtn">Join Pick'em</button>
+        </div>
+    </div>
+
+    <script>
+        // 2025 Season Configuration
+        const SEASON_START = new Date('2025-08-28'); // 2025 season start
+        const API_KEY = '0a4e05587227fea8e8fb9fe7bf795472';
+        const ODDS_API_BASE = 'https://api.the-odds-api.com/v4';
+        
+        // SEC Teams
+        const SEC_TEAMS = ['Alabama', 'Arkansas', 'Auburn', 'Florida', 'Georgia', 
+            'Kentucky', 'LSU', 'Ole Miss', 'Mississippi State', 'Missouri', 
+            'Oklahoma', 'South Carolina', 'Tennessee', 'Texas', 'Texas A&M', 'Vanderbilt'];
+
+        // 2025 Week 1 Default Games (if API fails)
+        const WEEK_1_2025_GAMES = [
+            { away: 'Western Kentucky', home: 'Alabama', spread: -35, total: 58, date: '2025-08-30', time: '19:00' },
+            { away: 'UTEP', home: 'Tennessee', spread: -42, total: 62, date: '2025-08-30', time: '15:30' },
+            { away: 'Miami (OH)', home: 'Kentucky', spread: -28, total: 52, date: '2025-08-31', time: '12:00' },
+            { away: 'Clemson', home: 'Georgia', spread: 12, total: 54, date: '2025-08-31', time: '12:00' },
+            { away: 'Colorado State', home: 'Texas', spread: -38, total: 61, date: '2025-08-31', time: '15:30' },
+            { away: 'Notre Dame', home: 'Texas A&M', spread: 3, total: 49, date: '2025-08-30', time: '19:30' },
+            { away: 'Florida State', home: 'Florida', spread: -2.5, total: 55, date: '2025-08-30', time: '19:30' },
+            { away: 'USC', home: 'LSU', spread: 4, total: 64, date: '2025-08-31', time: '19:30' },
+            { away: 'South Carolina', home: 'NC State', spread: 7, total: 48, date: '2025-08-30', time: '12:00' },
+            { away: 'Temple', home: 'Oklahoma', spread: -40, total: 59, date: '2025-08-30', time: '19:00' },
+            { away: 'Missouri', home: 'Ohio State', spread: 14, total: 58, date: '2025-08-30', time: '20:00' },
+            { away: 'Virginia Tech', home: 'Vanderbilt', spread: -7, total: 51, date: '2025-08-30', time: '12:00' },
+            { away: 'Ole Miss', home: 'Georgia Tech', spread: -18, total: 63, date: '2025-08-29', time: '20:00' },
+            { away: 'Alabama A&M', home: 'Auburn', spread: -45, total: 56, date: '2025-08-30', time: '19:30' },
+            { away: 'UAPB', home: 'Arkansas', spread: -49, total: 60, date: '2025-08-28', time: '19:30' },
+            { away: 'Furman', home: 'Mississippi State', spread: -31, total: 55, date: '2025-08-30', time: '16:00' }
+        ];
+
+        // App State
+        let currentUser = null;
+        let currentWeek = 1;
+        let userPicks = {};
+        let allUsers = {};
+        let gameData = {};
+        let gameResults = {};
+
+        // Initialize
+        function init() {
+            loadFromStorage();
+            setupEventListeners();
+            setCurrentWeekByDate();
+            
+            if (!currentUser) {
+                showLoginModal();
+            } else {
+                hideLoginModal();
+                updateUserDisplay();
+            }
+            
+            // Load default games or stored games
+            loadWeekData();
+            updateStandings();
+        }
+
+        function setCurrentWeekByDate() {
+            const now = new Date();
+            const weeksSinceStart = Math.floor((now - SEASON_START) / (7 * 24 * 60 * 60 * 1000));
+            currentWeek = Math.max(1, Math.min(15, weeksSinceStart + 1));
+            
+            // For testing, default to Week 1 if before season
+            if (now < SEASON_START) {
+                currentWeek = 1;
+            }
+            document.getElementById('currentWeek').textContent = `Week ${currentWeek}`;
+        }
+
+        // Storage functions
+        function loadFromStorage() {
+            const stored = localStorage.getItem('secPickem2025');
+            if (stored) {
+                const data = JSON.parse(stored);
+                allUsers = data.users || {};
+                gameData = data.gameData || {};
+                gameResults = data.gameResults || {};
+            }
+            
+            const user = localStorage.getItem('currentUser');
+            if (user) {
+                currentUser = user;
+                if (allUsers[currentUser] && allUsers[currentUser].picks && allUsers[currentUser].picks[`week${currentWeek}`]) {
+                    userPicks = allUsers[currentUser].picks[`week${currentWeek}`];
+                } else {
+                    userPicks = {};
+                }
+            }
+        }
+
+        function saveToStorage() {
+            const data = {
+                users: allUsers,
+                gameData: gameData,
+                gameResults: gameResults,
+                currentWeek: currentWeek
+            };
+            localStorage.setItem('secPickem2025', JSON.stringify(data));
+            
+            if (currentUser) {
+                localStorage.setItem('currentUser', currentUser);
+            }
+        }
+
+        // Try to load from API (will work when saved locally)
+        async function tryAPILoad() {
+            const container = document.getElementById('gamesList');
+            container.innerHTML = '<div class="loading">Attempting to load from API...</div>';
+            
+            try {
+				const todayISO = new Date().toISOString().split("T")[0];
+                const response = await fetch(
+                    `${ODDS_API_BASE}/sports/americanfootball_ncaaf/odds/?apiKey=${API_KEY}&regions=us&markets=spreads,totals&oddsFormat=american&dateFormat=iso&date=${todayISO}`
+                );
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // Filter for SEC games
+                const secGames = data.filter(game => {
+                    const homeTeam = game.home_team;
+                    const awayTeam = game.away_team;
+                    return SEC_TEAMS.some(team => 
+                        homeTeam.includes(team) || awayTeam.includes(team)
+                    );
+                });
+
+                if (secGames.length > 0) {
+                    const transformedGames = transformAPIGames(secGames);
+                    gameData[`week${currentWeek}`] = transformedGames;
+                    saveToStorage();
+                    displayGames(transformedGames);
+                    showToast('Successfully loaded games from API!');
+                } else {
+                    loadDefaultGames();
+                }
+            } catch (error) {
+                console.error('API Error:', error);
+                showToast('API blocked by browser. Using manual mode. Save file locally to enable API.');
+                loadDefaultGames();
+            }
+        }
+
+        function transformAPIGames(apiGames) {
+            return apiGames.map(game => {
+                const gameDate = new Date(game.commence_time);
+                const bookmaker = game.bookmakers?.[0];
+                let spread = 0;
+                let total = 50;
+                
+                if (bookmaker && bookmaker.markets) {
+                    const spreadMarket = bookmaker.markets.find(m => m.key === 'spreads');
+                    const totalMarket = bookmaker.markets.find(m => m.key === 'totals');
+                    
+                    if (spreadMarket && spreadMarket.outcomes) {
+                        const homeOutcome = spreadMarket.outcomes.find(o => o.name === game.home_team);
+                        if (homeOutcome) {
+                            spread = homeOutcome.point;
+                        }
+                    }
+                    
+                    if (totalMarket && totalMarket.outcomes && totalMarket.outcomes[0]) {
+                        total = totalMarket.outcomes[0].point;
+                    }
+                }
+
+                // Clean team names
+                const cleanTeamName = (name) => {
+                    for (let secTeam of SEC_TEAMS) {
+                        if (name.includes(secTeam)) return secTeam;
+                    }
+                    return name.replace(/\s*(Crimson Tide|Razorbacks|Tigers|Gators|Bulldogs|Wildcats|Rebels|Volunteers|Longhorns|Aggies|Commodores|Sooners|Gamecocks)$/i, '').trim();
+                };
+
+                return {
+                    id: game.id,
+                    home: cleanTeamName(game.home_team),
+                    away: cleanTeamName(game.away_team),
+                    spread: spread,
+                    total: total,
+                    date: gameDate.toISOString().split('T')[0],
+                    time: gameDate.toTimeString().slice(0, 5),
+                    isOverUnder: game.home_team.includes('South Carolina') || game.away_team.includes('South Carolina'),
+                    isSecMatchup: SEC_TEAMS.includes(cleanTeamName(game.home_team)) && SEC_TEAMS.includes(cleanTeamName(game.away_team))
+                };
+            });
+        }
+
+        function loadDefaultGames() {
+            if (!gameData[`week${currentWeek}`] || gameData[`week${currentWeek}`].length === 0) {
+                // Load default Week 1 2025 games
+                if (currentWeek === 1) {
+                    const defaultGames = WEEK_1_2025_GAMES.map((game, index) => ({
+                        id: `default_w1_g${index}`,
+                        ...game,
+                        isOverUnder: game.home === 'South Carolina' || game.away === 'South Carolina',
+                        isSecMatchup: SEC_TEAMS.includes(game.home) && SEC_TEAMS.includes(game.away)
+                    }));
+                    gameData[`week${currentWeek}`] = defaultGames;
+                    saveToStorage();
+                }
+            }
+            displayGames(gameData[`week${currentWeek}`] || []);
+        }
+
+        function loadWeekData() {
+            const stored = gameData[`week${currentWeek}`];
+            if (stored && stored.length > 0) {
+                displayGames(stored);
+            } else {
+                loadDefaultGames();
+            }
+        }
+
+        // Add game manually
+        function addManualGame() {
+            const away = document.getElementById('awayTeam').value.trim();
+            const home = document.getElementById('homeTeam').value.trim();
+            const spread = parseFloat(document.getElementById('spreadValue').value) || 0;
+            const total = parseFloat(document.getElementById('totalValue').value) || 50;
+            const date = document.getElementById('gameDate').value;
+            const time = document.getElementById('gameTime').value;
+            
+            if (!away || !home) {
+                showToast('Please enter both teams');
+                return;
+            }
+            
+            const newGame = {
+                id: `manual_${Date.now()}`,
+                away: away,
+                home: home,
+                spread: spread,
+                total: total,
+                date: date,
+                time: time,
+                isOverUnder: home === 'South Carolina' || away === 'South Carolina',
+                isSecMatchup: SEC_TEAMS.includes(home) && SEC_TEAMS.includes(away),
+                isManual: true
+            };
+            
+            if (!gameData[`week${currentWeek}`]) {
+                gameData[`week${currentWeek}`] = [];
+            }
+            
+            gameData[`week${currentWeek}`].push(newGame);
+            saveToStorage();
+            displayGames(gameData[`week${currentWeek}`]);
+            
+            // Clear form
+            document.getElementById('awayTeam').value = '';
+            document.getElementById('homeTeam').value = '';
+            document.getElementById('spreadValue').value = '';
+            document.getElementById('totalValue').value = '';
+            
+            showToast('Game added successfully!');
+        }
+
+        function deleteGame(gameId) {
+            if (confirm('Delete this game?')) {
+                gameData[`week${currentWeek}`] = gameData[`week${currentWeek}`].filter(g => g.id !== gameId);
+                
+                // Also remove any picks for this game
+                delete userPicks[gameId];
+                if (allUsers[currentUser]?.picks?.[`week${currentWeek}`]) {
+                    delete allUsers[currentUser].picks[`week${currentWeek}`][gameId];
+                }
+                
+                saveToStorage();
+                displayGames(gameData[`week${currentWeek}`]);
+                showToast('Game deleted');
+            }
+        }
+
+        function updateGameSpread(gameId, newSpread) {
+            const games = gameData[`week${currentWeek}`];
+            const game = games.find(g => g.id === gameId);
+            if (game) {
+                game.spread = parseFloat(newSpread);
+                saveToStorage();
+            }
+        }
+
+        function updateGameTotal(gameId, newTotal) {
+            const games = gameData[`week${currentWeek}`];
+            const game = games.find(g => g.id === gameId);
+            if (game) {
+                game.total = parseFloat(newTotal);
+                saveToStorage();
+            }
+        }
+
+        // Display games
+        function displayGames(games) {
+            const container = document.getElementById('gamesList');
+            
+            if (!games || games.length === 0) {
+                container.innerHTML = '<div class="error-message">No games added yet. Add games manually above or try loading from API.</div>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            const weekResults = gameResults[`week${currentWeek}`] || {};
+            
+            games.forEach(game => {
+                const result = weekResults[game.id];
+                const isCompleted = result && result.completed;
+                const gameCard = document.createElement('div');
+                gameCard.className = `game-card ${game.isSecMatchup ? 'sec-matchup' : ''} ${isCompleted ? 'completed' : ''}`;
+                
+                if (game.isOverUnder) {
+                    // South Carolina O/U game
+                    const userPick = userPicks[game.id];
+                    
+                    gameCard.innerHTML = `
+                        <div class="game-header">
+                            <span>${game.away} @ ${game.home}
+                                ${game.isSecMatchup ? '<span class="sec-badge">SEC</span>' : ''}
+                            </span>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                ${isCompleted ? '<span class="final-badge">FINAL</span>' : ''}
+                                <span class="game-time">${game.date} ${game.time}</span>
+                                ${game.isManual ? '<button class="delete-game" onclick="deleteGame(\''+game.id+'\')">Delete</button>' : ''}
+                            </div>
+                        </div>
+                        <div class="ou-section">
+                            <div class="ou-header">
+                                Total Points: 
+                                ${game.isManual && !isCompleted ? 
+                                    `<input type="number" class="spread-input" value="${game.total}" 
+                                           onchange="updateGameTotal('${game.id}', this.value)" step="0.5">` 
+                                    : game.total}
+                            </div>
+                            <div class="ou-options">
+                                <label class="ou-option ${userPick === 'over' ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
+                                    <input type="radio" name="${game.id}" value="over" 
+                                           ${userPick === 'over' ? 'checked' : ''}
+                                           ${isCompleted ? 'disabled' : ''}>
+                                    <div>Over ${game.total}</div>
+                                </label>
+                                <label class="ou-option ${userPick === 'under' ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
+                                    <input type="radio" name="${game.id}" value="under"
+                                           ${userPick === 'under' ? 'checked' : ''}
+                                           ${isCompleted ? 'disabled' : ''}>
+                                    <div>Under ${game.total}</div>
+                                </label>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Regular spread game
+                    const homeSpread = parseFloat(game.spread);
+                    const awaySpread = -homeSpread;
+                    const userPick = userPicks[game.id];
+                    
+                    gameCard.innerHTML = `
+                        <div class="game-header">
+                            <span>${game.away} @ ${game.home}
+                                ${game.isSecMatchup ? '<span class="sec-badge">SEC</span>' : ''}
+                            </span>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                ${isCompleted ? '<span class="final-badge">FINAL</span>' : ''}
+                                <span class="game-time">${game.date} ${game.time}</span>
+                                ${game.isManual ? '<button class="delete-game" onclick="deleteGame(\''+game.id+'\')">Delete</button>' : ''}
+                            </div>
+                        </div>
+                        <div class="teams">
+                            <label class="team-option ${userPick === game.away ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
+                                <input type="radio" name="${game.id}" value="${game.away}"
+                                       ${userPick === game.away ? 'checked' : ''}
+                                       ${isCompleted ? 'disabled' : ''}>
+                                <div class="team-info">
+                                    <span class="team-name">${game.away}</span>
+                                    <span class="spread">${awaySpread > 0 ? '+' : ''}${awaySpread.toFixed(1)}</span>
+                                </div>
+                            </label>
+                            <label class="team-option ${userPick === game.home ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
+                                <input type="radio" name="${game.id}" value="${game.home}"
+                                       ${userPick === game.home ? 'checked' : ''}
+                                       ${isCompleted ? 'disabled' : ''}>
+                                <div class="team-info">
+                                    <span class="team-name">${game.home}</span>
+                                    <span class="spread">
+                                        ${game.isManual && !isCompleted ? 
+                                            `<input type="number" class="spread-input" value="${homeSpread}" 
+                                                   onchange="updateGameSpread('${game.id}', this.value)" 
+                                                   onclick="event.stopPropagation()" step="0.5">` 
+                                            : (homeSpread > 0 ? '+' : '') + homeSpread.toFixed(1)}
+                                    </span>
+                                </div>
+                            </label>
+                        </div>
+                    `;
+                }
+                
+                container.appendChild(gameCard);
+            });
+            
+            // Add event listeners for picks
+            document.querySelectorAll('input[type="radio"]:not(:disabled)').forEach(input => {
+                input.addEventListener('change', handlePickChange);
+            });
+        }
+
+        function handlePickChange(e) {
+            const gameId = e.target.name;
+            const pick = e.target.value;
+            
+            userPicks[gameId] = pick;
+            
+            // Update visual selection
+            document.querySelectorAll(`input[name="${gameId}"]`).forEach(input => {
+                const option = input.closest('.team-option, .ou-option');
+                if (input.checked) {
+                    option.classList.add('selected');
+                } else {
+                    option.classList.remove('selected');
+                }
+            });
+        }
+
+        function submitPicks() {
+            if (!currentUser) {
+                showToast('Please login first!');
+                return;
+            }
+            
+            const weekGames = gameData[`week${currentWeek}`];
+            if (!weekGames || weekGames.length === 0) {
+                showToast('No games available!');
+                return;
+            }
+            
+            const allPicked = weekGames.every(game => userPicks[game.id]);
+            
+            if (!allPicked) {
+                const unpickedCount = weekGames.filter(game => !userPicks[game.id]).length;
+                showToast(`Please make picks for all games! (${unpickedCount} remaining)`);
+                return;
+            }
+            
+            if (!allUsers[currentUser].picks) {
+                allUsers[currentUser].picks = {};
+            }
+            
+            allUsers[currentUser].picks[`week${currentWeek}`] = { ...userPicks };
+            
+            saveToStorage();
+            updateStandings();
+            showToast('Picks submitted successfully!');
+        }
+
+        function markWinners() {
+            // Simple UI to mark game winners for manual scoring
+            const games = gameData[`week${currentWeek}`];
+            if (!games || games.length === 0) {
+                showToast('No games to score');
+                return;
+            }
+            
+            // For now, just mark all games as complete with random scores
+            // In real use, you'd have a UI to enter actual scores
+            showToast('Feature coming soon: Manual score entry');
+        }
+
+        // Standings
+        function updateStandings() {
+            updateWeeklyStandings();
+            updateSeasonStandings();
+        }
+
+        function updateWeeklyStandings() {
+            const container = document.getElementById('weeklyStandings');
+            const weekPicks = {};
+            
+            Object.keys(allUsers).forEach(username => {
+                const picks = allUsers[username].picks?.[`week${currentWeek}`];
+                if (picks) {
+                    // For now, show pick count
+                    weekPicks[username] = Object.keys(picks).length;
+                }
+            });
+            
+            if (Object.keys(weekPicks).length === 0) {
+                container.innerHTML = '<li style="text-align: center; padding: 20px; opacity: 0.5;">No picks submitted yet</li>';
+                return;
+            }
+            
+            container.innerHTML = Object.entries(weekPicks)
+                .map(([name, count]) => {
+                    const isCurrentUser = name === currentUser;
+                    return `
+                        <li class="standing-item ${isCurrentUser ? 'current-user' : ''}">
+                            <span class="standing-name">${name}</span>
+                            <span class="standing-record">${count} picks</span>
+                        </li>
+                    `;
+                }).join('');
+        }
+
+        function updateSeasonStandings() {
+            const container = document.getElementById('seasonStandings');
+            container.innerHTML = '<li style="text-align: center; padding: 20px; opacity: 0.5;">Season standings will appear after games complete</li>';
+        }
+
+        // User management
+        function showLoginModal() {
+            document.getElementById('loginModal').style.display = 'flex';
+        }
+
+        function hideLoginModal() {
+            document.getElementById('loginModal').style.display = 'none';
+        }
+
+        function login() {
+            const name = document.getElementById('nameInput').value.trim();
+            if (name) {
+                currentUser = name;
+                
+                if (!allUsers[name]) {
+                    allUsers[name] = {
+                        picks: {}
+                    };
+                }
+                
+                userPicks = allUsers[name].picks?.[`week${currentWeek}`] || {};
+                saveToStorage();
+                hideLoginModal();
+                updateUserDisplay();
+                displayGames(gameData[`week${currentWeek}`] || []);
+                updateStandings();
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            userPicks = {};
+            localStorage.removeItem('currentUser');
+            showLoginModal();
+        }
+
+        function updateUserDisplay() {
+            document.getElementById('username').textContent = currentUser;
+            document.getElementById('logoutBtn').style.display = 'block';
+        }
+
+        // Week navigation
+        function changeWeek(direction) {
+            const newWeek = currentWeek + direction;
+            if (newWeek < 1 || newWeek > 15) return;
+            
+            currentWeek = newWeek;
+            document.getElementById('currentWeek').textContent = `Week ${currentWeek}`;
+            
+            document.getElementById('prevWeek').disabled = currentWeek === 1;
+            document.getElementById('nextWeek').disabled = currentWeek === 15;
+            
+            if (currentUser && allUsers[currentUser]?.picks?.[`week${currentWeek}`]) {
+                userPicks = allUsers[currentUser].picks[`week${currentWeek}`];
+            } else {
+                userPicks = {};
+            }
+            
+            loadWeekData();
+            updateStandings();
+            saveToStorage();
+        }
+
+        function showToast(message) {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideUp 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function setupEventListeners() {
+            document.getElementById('loginBtn').addEventListener('click', login);
+            document.getElementById('nameInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') login();
+            });
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            document.getElementById('prevWeek').addEventListener('click', () => changeWeek(-1));
+            document.getElementById('nextWeek').addEventListener('click', () => changeWeek(1));
+            document.getElementById('submitPicks').addEventListener('click', submitPicks);
+            document.getElementById('loadApiBtn').addEventListener('click', tryAPILoad);
+            document.getElementById('updateScoresBtn').addEventListener('click', markWinners);
+        }
+
+        // Initialize
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>
