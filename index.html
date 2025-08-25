@@ -737,6 +737,7 @@
 
     <script>
         // 2025 Season Configuration
+		const BACKEND_BASE = ''; // same origin on Vercel
         const SEASON_START = new Date('2025-08-28'); // 2025 season start
         const API_KEY = '0a4e05587227fea8e8fb9fe7bf795472';
         const ODDS_API_BASE = 'https://api.the-odds-api.com/v4';
@@ -841,7 +842,7 @@
 
         // Try to load from API (will work when saved locally)
         async function tryAPILoad() {
-            const container = document.getElementById('gamesList');
+            const resp = await fetch(`${BACKEND_BASE}/api/games?week=${currentWeek}`);
             container.innerHTML = '<div class="loading">Attempting to load from API...</div>';
             
             try {
