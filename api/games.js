@@ -44,26 +44,47 @@ function toETParts(iso) {
 }
 
 function cleanTeamName(name) {
-  // First check for exact SEC team matches
+  if (!name) return '';
+  
+  // First check for exact SEC team matches (case insensitive)
   for (const t of SEC_TEAMS) {
-    if (name.includes(t)) return t;
+    if (name.toLowerCase().includes(t.toLowerCase())) return t;
   }
   
-  // Clean up common team name variations
+  // Handle specific team name variations
+  const teamMappings = {
+    'Mississippi State': ['Miss State', 'Mississippi St'],
+    'Texas A&M': ['Texas A&M', 'TAMU'],
+    'Ole Miss': ['Mississippi', 'Miss', 'Ole Miss'],
+    'South Carolina': ['S Carolina', 'SC'],
+  };
+  
+  for (const [canonical, variations] of Object.entries(teamMappings)) {
+    for (const variation of variations) {
+      if (name.toLowerCase().includes(variation.toLowerCase())) {
+        return canonical;
+      }
+    }
+  }
+  
+  // Clean up common mascot names but preserve the core team name
   return name
-    .replace(/Crimson Tide|Razorbacks|Tigers|Gators|Bulldogs|Wildcats|Rebels|Volunteers|Longhorns|Aggies|Commodores|Sooners|Gamecocks/gi, '')
-    .replace(/State$/, 'State') // Keep "State" for Mississippi State
-    .replace(/^Miss\s/, 'Mississippi ') // Convert "Miss State" to "Mississippi State"
+    .replace(/\b(Crimson Tide|Razorbacks|Tigers|Gators|Bulldogs|Wildcats|Rebels|Volunteers|Longhorns|Aggies|Commodores|Sooners|Gamecocks)\b/gi, '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 function transformGames(arr) {
+  console.log(`Transforming ${arr.length} games from API`);
+  
   return arr.map(g => {
     const { date, time } = toETParts(g.commence_time);
     const homeRaw = g.home_team || '';
     const awayRaw = g.away_team || '';
     const home = cleanTeamName(homeRaw);
     const away = cleanTeamName(awayRaw);
+
+    console.log(`Processing: ${awayRaw} @ ${homeRaw} -> ${away} @ ${home}`);
 
     let spread = 0, total = 50;
     
@@ -85,7 +106,7 @@ function transformGames(arr) {
       }
     }
 
-    return {
+    const gameObj = {
       id: g.id || `${away}@${home}_${date}_${time}`,
       home, 
       away, 
@@ -93,13 +114,27 @@ function transformGames(arr) {
       total, 
       date, 
       time,
+      originalHomeTeam: homeRaw,
+      originalAwayTeam: awayRaw,
       isOverUnder: home === 'South Carolina' || away === 'South Carolina',
       isSecMatchup: SEC_TEAMS.includes(home) && SEC_TEAMS.includes(away)
     };
+
+    console.log(`Game created:`, gameObj);
+    return gameObj;
   });
 }
 
 export default async function handler(req, res) {
+  // Set CORS headers for debugging
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   try {
     const url = new URL(req.url, 'http://localhost');
     let week = Number(url.searchParams.get('week'));
@@ -112,15 +147,16 @@ export default async function handler(req, res) {
     const commenceTimeFrom = start.toISOString();
     const commenceTimeTo = end.toISOString();
     
-    console.log(`Fetching games for Week ${week}: ${commenceTimeFrom} to ${commenceTimeTo}`);
+    console.log(`=== API Request for Week ${week} ===`);
+    console.log(`Date range: ${commenceTimeFrom} to ${commenceTimeTo}`);
 
     const apiKey = process.env.ODDS_API_KEY;
     if (!apiKey) {
       console.error('ODDS_API_KEY environment variable not set');
-      return res.status(200).json({ 
+      return res.status(500).json({ 
+        error: 'API key not configured',
         week, 
-        games: [], 
-        error: 'API key not configured' 
+        games: []
       });
     }
     
@@ -135,41 +171,58 @@ export default async function handler(req, res) {
     apiUrl.searchParams.set('commenceTimeFrom', commenceTimeFrom);
     apiUrl.searchParams.set('commenceTimeTo', commenceTimeTo);
     
-    console.log('API URL:', apiUrl.toString());
+    console.log('Full API URL:', apiUrl.toString());
 
     const response = await fetch(apiUrl.toString(), { 
-      timeout: 30000,
+      method: 'GET',
       headers: {
-        'User-Agent': 'SEC-Pickem-2025/1.0'
-      }
+        'User-Agent': 'SEC-Pickem-2025/1.0',
+        'Accept': 'application/json',
+      },
     });
+    
+    console.log(`API Response Status: ${response.status}`);
+    console.log(`API Response Headers:`, Object.fromEntries(response.headers.entries()));
     
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Odds API error ${response.status}: ${errorText}`);
       
-      // Return fallback data for Week 1 if API fails
-      if (week === 1) {
-        return res.status(200).json({ 
-          week, 
-          games: getWeek1Fallback(),
-          source: 'fallback'
-        });
-      }
-      
-      throw new Error(`Odds API ${response.status}: ${errorText}`);
+      return res.status(500).json({
+        error: `Odds API returned ${response.status}: ${errorText}`,
+        week,
+        games: [],
+        source: 'api_error'
+      });
     }
 
     const data = await response.json();
     console.log(`Received ${data.length} total games from API`);
     
-    // Filter to games involving SEC teams
-    const secGames = data.filter(g => 
-      SEC_TEAMS.some(t => 
-        (g.home_team || '').includes(t) || 
-        (g.away_team || '').includes(t)
-      )
-    );
+    // Log first few games to see what we're getting
+    if (data.length > 0) {
+      console.log('Sample games from API:');
+      data.slice(0, 3).forEach((game, i) => {
+        console.log(`  ${i + 1}. ${game.away_team} @ ${game.home_team} (${game.commence_time})`);
+      });
+    }
+    
+    // Filter to games involving SEC teams (more lenient matching)
+    const secGames = data.filter(g => {
+      const homeTeam = (g.home_team || '').toLowerCase();
+      const awayTeam = (g.away_team || '').toLowerCase();
+      
+      const isSecGame = SEC_TEAMS.some(secTeam => 
+        homeTeam.includes(secTeam.toLowerCase()) || 
+        awayTeam.includes(secTeam.toLowerCase())
+      );
+      
+      if (isSecGame) {
+        console.log(`✓ SEC Game found: ${g.away_team} @ ${g.home_team}`);
+      }
+      
+      return isSecGame;
+    });
     
     console.log(`Filtered to ${secGames.length} SEC-related games`);
     
@@ -185,6 +238,8 @@ export default async function handler(req, res) {
       if (!seen.has(key)) {
         seen.add(key);
         deduped.push(g);
+      } else {
+        console.log(`Duplicate removed: ${g.away} @ ${g.home} ${g.date} ${g.time}`);
       }
     }
     
@@ -197,206 +252,46 @@ export default async function handler(req, res) {
       return a.time.localeCompare(b.time);
     });
 
-    res.status(200).json({ 
+    // Log final games
+    console.log('Final games being returned:');
+    deduped.forEach((game, i) => {
+      console.log(`  ${i + 1}. ${game.away} @ ${game.home} (${game.date} ${game.time}) - Spread: ${game.spread}, Total: ${game.total}`);
+    });
+
+    const responseData = { 
       week, 
       games: deduped,
       source: 'api',
       count: deduped.length,
+      originalCount: data.length,
+      secFilteredCount: secGames.length,
       dateRange: {
         from: commenceTimeFrom,
         to: commenceTimeTo
+      },
+      debug: {
+        apiUrl: apiUrl.toString(),
+        hasApiKey: !!apiKey,
+        responseStatus: response.status
       }
-    });
+    };
+
+    console.log('=== Final Response ===');
+    console.log(`Returning ${responseData.games.length} games`);
+    
+    return res.status(200).json(responseData);
     
   } catch (error) {
-    console.error('API handler error:', error);
+    console.error('=== API Handler Error ===');
+    console.error('Error details:', error);
+    console.error('Stack trace:', error.stack);
     
-    // Return fallback data for Week 1
-    if (week === 1) {
-      res.status(200).json({ 
-        week: 1, 
-        games: getWeek1Fallback(),
-        source: 'fallback',
-        error: error.message
-      });
-    } else {
-      res.status(200).json({ 
-        week: week || 1, 
-        games: [],
-        source: 'error',
-        error: error.message
-      });
-    }
+    return res.status(500).json({ 
+      error: error.message,
+      stack: error.stack,
+      week: week || 1, 
+      games: [],
+      source: 'server_error'
+    });
   }
-}
-
-// Fallback data for Week 1 2025
-function getWeek1Fallback() {
-  return [
-    {
-      id: 'week1_texas_ohiostate',
-      away: 'Texas',
-      home: 'Ohio State',
-      date: '2025-08-30',
-      time: '12:00',
-      spread: 3.5, // Ohio State favored
-      total: 52.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_auburn_baylor',
-      away: 'Auburn',
-      home: 'Baylor',
-      date: '2025-08-29',
-      time: '20:00',
-      spread: -2.5, // Auburn favored
-      total: 55.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_southcarolina_virginiatech',
-      away: 'South Carolina',
-      home: 'Virginia Tech',
-      date: '2025-08-31',
-      time: '15:00',
-      spread: 1.5, // VT slight favorite
-      total: 48.5,
-      isOverUnder: true, // South Carolina game = O/U
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_alabama_floridastate',
-      away: 'Alabama',
-      home: 'Florida State',
-      date: '2025-08-30',
-      time: '15:30',
-      spread: -10.5, // Alabama big favorite
-      total: 59.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_marshall_georgia',
-      away: 'Marshall',
-      home: 'Georgia',
-      date: '2025-08-30',
-      time: '15:30',
-      spread: 28.5, // Georgia huge favorite
-      total: 61.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_utsa_texasam',
-      away: 'UTSA',
-      home: 'Texas A&M',
-      date: '2025-08-30',
-      time: '19:00',
-      spread: 21.5, // A&M big favorite
-      total: 54.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_charleston_vanderbilt',
-      away: 'Charleston Southern',
-      home: 'Vanderbilt',
-      date: '2025-08-30',
-      time: '19:00',
-      spread: 35.5, // Vandy huge favorite
-      total: 58.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_toledo_kentucky',
-      away: 'Toledo',
-      home: 'Kentucky',
-      date: '2025-08-30',
-      time: '12:45',
-      spread: 14.5, // UK favorite
-      total: 52.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_centralarks_missouri',
-      away: 'Central Arkansas',
-      home: 'Missouri',
-      date: '2025-08-28',
-      time: '19:30',
-      spread: 24.5, // Mizzou big favorite
-      total: 56.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_georgiastate_olemiss',
-      away: 'Georgia State',
-      home: 'Ole Miss',
-      date: '2025-08-30',
-      time: '19:45',
-      spread: 28.5, // Ole Miss big favorite
-      total: 63.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_msstate_southernmiss',
-      away: 'Mississippi State',
-      home: 'Southern Miss',
-      date: '2025-08-30',
-      time: '12:00',
-      spread: -7.5, // MSU favorite on road
-      total: 49.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_alabamaam_arkansas',
-      away: 'Alabama A&M',
-      home: 'Arkansas',
-      date: '2025-08-30',
-      time: '15:15',
-      spread: 42.5, // Arkansas huge favorite
-      total: 64.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_liu_florida',
-      away: 'LIU',
-      home: 'Florida',
-      date: '2025-08-30',
-      time: '19:00',
-      spread: 48.5, // Florida massive favorite
-      total: 67.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_illinoisstate_oklahoma',
-      away: 'Illinois State',
-      home: 'Oklahoma',
-      date: '2025-08-30',
-      time: '18:00',
-      spread: 35.5, // OU big favorite
-      total: 61.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    },
-    {
-      id: 'week1_syracuse_tennessee',
-      away: 'Syracuse',
-      home: 'Tennessee',
-      date: '2025-08-30',
-      time: '12:00',
-      spread: 17.5, // Tennessee favorite
-      total: 56.5,
-      isOverUnder: false,
-      isSecMatchup: false
-    }
-  ];
 }
