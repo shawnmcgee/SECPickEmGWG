@@ -229,4 +229,174 @@ export default async function handler(req, res) {
     }
   }
 }
+
+// Fallback data for Week 1 2025
+function getWeek1Fallback() {
+  return [
+    {
+      id: 'week1_texas_ohiostate',
+      away: 'Texas',
+      home: 'Ohio State',
+      date: '2025-08-30',
+      time: '12:00',
+      spread: 3.5, // Ohio State favored
+      total: 52.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_auburn_baylor',
+      away: 'Auburn',
+      home: 'Baylor',
+      date: '2025-08-29',
+      time: '20:00',
+      spread: -2.5, // Auburn favored
+      total: 55.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_southcarolina_virginiatech',
+      away: 'South Carolina',
+      home: 'Virginia Tech',
+      date: '2025-08-31',
+      time: '15:00',
+      spread: 1.5, // VT slight favorite
+      total: 48.5,
+      isOverUnder: true, // South Carolina game = O/U
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_alabama_floridastate',
+      away: 'Alabama',
+      home: 'Florida State',
+      date: '2025-08-30',
+      time: '15:30',
+      spread: -10.5, // Alabama big favorite
+      total: 59.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_marshall_georgia',
+      away: 'Marshall',
+      home: 'Georgia',
+      date: '2025-08-30',
+      time: '15:30',
+      spread: 28.5, // Georgia huge favorite
+      total: 61.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_utsa_texasam',
+      away: 'UTSA',
+      home: 'Texas A&M',
+      date: '2025-08-30',
+      time: '19:00',
+      spread: 21.5, // A&M big favorite
+      total: 54.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_charleston_vanderbilt',
+      away: 'Charleston Southern',
+      home: 'Vanderbilt',
+      date: '2025-08-30',
+      time: '19:00',
+      spread: 35.5, // Vandy huge favorite
+      total: 58.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_toledo_kentucky',
+      away: 'Toledo',
+      home: 'Kentucky',
+      date: '2025-08-30',
+      time: '12:45',
+      spread: 14.5, // UK favorite
+      total: 52.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_centralarks_missouri',
+      away: 'Central Arkansas',
+      home: 'Missouri',
+      date: '2025-08-28',
+      time: '19:30',
+      spread: 24.5, // Mizzou big favorite
+      total: 56.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_georgiastate_olemiss',
+      away: 'Georgia State',
+      home: 'Ole Miss',
+      date: '2025-08-30',
+      time: '19:45',
+      spread: 28.5, // Ole Miss big favorite
+      total: 63.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_msstate_southernmiss',
+      away: 'Mississippi State',
+      home: 'Southern Miss',
+      date: '2025-08-30',
+      time: '12:00',
+      spread: -7.5, // MSU favorite on road
+      total: 49.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_alabamaam_arkansas',
+      away: 'Alabama A&M',
+      home: 'Arkansas',
+      date: '2025-08-30',
+      time: '15:15',
+      spread: 42.5, // Arkansas huge favorite
+      total: 64.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_liu_florida',
+      away: 'LIU',
+      home: 'Florida',
+      date: '2025-08-30',
+      time: '19:00',
+      spread: 48.5, // Florida massive favorite
+      total: 67.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_illinoisstate_oklahoma',
+      away: 'Illinois State',
+      home: 'Oklahoma',
+      date: '2025-08-30',
+      time: '18:00',
+      spread: 35.5, // OU big favorite
+      total: 61.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    },
+    {
+      id: 'week1_syracuse_tennessee',
+      away: 'Syracuse',
+      home: 'Tennessee',
+      date: '2025-08-30',
+      time: '12:00',
+      spread: 17.5, // Tennessee favorite
+      total: 56.5,
+      isOverUnder: false,
+      isSecMatchup: false
+    }
+  ];
 }
