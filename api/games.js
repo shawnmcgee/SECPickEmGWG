@@ -43,6 +43,26 @@ function toETParts(iso) {
   return { date, time };
 }
 
+function formatDateForAPI(date) {
+  // Format date to YYYY-MM-DDTHH:MM:SSZ format required by API
+  // Set to start of day (00:00:00) in UTC
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T00:00:00Z`;
+}
+
+function formatEndDateForAPI(date) {
+  // Format end date to YYYY-MM-DDTHH:MM:SSZ format required by API
+  // Set to end of day (23:59:59) in UTC
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T23:59:59Z`;
+}
+
 function cleanTeamName(name) {
   if (!name) return '';
   
@@ -135,20 +155,24 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  let week = 1; // Initialize week variable
+
   try {
     const url = new URL(req.url, 'http://localhost');
-    let week = Number(url.searchParams.get('week'));
+    week = Number(url.searchParams.get('week'));
     if (!week) week = weekFromDate(new Date());
     week = Math.max(1, Math.min(15, week));
     
     const { start, end } = weekRange(week);
     
-    // Format dates for API (ISO format in UTC)
-    const commenceTimeFrom = start.toISOString();
-    const commenceTimeTo = end.toISOString();
+    // Format dates for API using the correct format: YYYY-MM-DDTHH:MM:SSZ
+    const commenceTimeFrom = formatDateForAPI(start);
+    const commenceTimeTo = formatEndDateForAPI(end);
     
     console.log(`=== API Request for Week ${week} ===`);
     console.log(`Date range: ${commenceTimeFrom} to ${commenceTimeTo}`);
+    console.log(`Start date object:`, start);
+    console.log(`End date object:`, end);
 
     const apiKey = process.env.ODDS_API_KEY;
     if (!apiKey) {
@@ -172,6 +196,8 @@ export default async function handler(req, res) {
     apiUrl.searchParams.set('commenceTimeTo', commenceTimeTo);
     
     console.log('Full API URL:', apiUrl.toString());
+    console.log('commenceTimeFrom parameter:', commenceTimeFrom);
+    console.log('commenceTimeTo parameter:', commenceTimeTo);
 
     const response = await fetch(apiUrl.toString(), { 
       method: 'GET',
@@ -192,7 +218,13 @@ export default async function handler(req, res) {
         error: `Odds API returned ${response.status}: ${errorText}`,
         week,
         games: [],
-        source: 'api_error'
+        source: 'api_error',
+        debug: {
+          commenceTimeFrom,
+          commenceTimeTo,
+          apiUrl: apiUrl.toString(),
+          responseStatus: response.status
+        }
       });
     }
 
@@ -272,7 +304,9 @@ export default async function handler(req, res) {
       debug: {
         apiUrl: apiUrl.toString(),
         hasApiKey: !!apiKey,
-        responseStatus: response.status
+        responseStatus: response.status,
+        startDate: start.toISOString(),
+        endDate: end.toISOString()
       }
     };
 
