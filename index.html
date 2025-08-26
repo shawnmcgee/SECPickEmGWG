@@ -320,6 +320,8 @@
             font-size: clamp(0.9rem, 2.5vw, 1.1rem);
             font-weight: 600;
             margin-right: 10px;
+            display: flex;
+            align-items: center;
         }
 
         .team-score {
@@ -337,6 +339,16 @@
             font-weight: 600;
             font-size: clamp(0.75rem, 2vw, 0.9rem);
             white-space: nowrap;
+        }
+
+        .spread.favorite {
+            background: rgba(102, 126, 234, 0.3) !important;
+            color: var(--gradient-start) !important;
+        }
+
+        .spread.underdog {
+            background: rgba(233, 69, 96, 0.2) !important;
+            color: var(--accent) !important;
         }
 
         .spread-input {
@@ -621,6 +633,18 @@
             opacity: 0.8;
         }
 
+        .debug-info {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 0.8rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
         /* Desktop styles */
         @media (min-width: 1024px) {
             .container {
@@ -745,7 +769,7 @@
                 <button id="nextWeek">Next →</button>
             </div>
             <div class="week-controls">
-                <button id="loadApiBtn">🔄 Try API Load</button>
+                <button id="loadApiBtn">🔄 Load Live API</button>
                 <button id="updateScoresBtn">📊 Mark Winners</button>
             </div>
         </div>
@@ -787,50 +811,6 @@
         const SEC_TEAMS = ['Alabama', 'Arkansas', 'Auburn', 'Florida', 'Georgia', 
             'Kentucky', 'LSU', 'Ole Miss', 'Mississippi State', 'Missouri', 
             'Oklahoma', 'South Carolina', 'Tennessee', 'Texas', 'Texas A&M', 'Vanderbilt'];
-
-        // 2025 Week 1 Default Games (if API fails)
-        const WEEK_1_2025_GAMES = [
-            { away: 'Texas',            home: 'Ohio State',        date: '2025-08-30', time: '12:00', spread: -3.5,  total: 52.5 },
-            { away: 'Auburn',           home: 'Baylor',            date: '2025-08-29', time: '20:00', spread: 2.5,  total: 55.5 },
-            { away: 'South Carolina',   home: 'Virginia Tech',     date: '2025-08-31', time: '15:00', spread: -1.5,  total: 48.5 },
-            { away: 'Alabama',          home: 'Florida State',     date: '2025-08-30', time: '15:30', spread: -10.5, total: 59.5 },
-            { away: 'Marshall',         home: 'Georgia',           date: '2025-08-30', time: '15:30', spread: 28.5,  total: 61.5 },
-            { away: 'UTSA',             home: 'Texas A&M',         date: '2025-08-30', time: '19:00', spread: 21.5,  total: 54.5 },
-            { away: 'Charleston Southern', home: 'Vanderbilt',     date: '2025-08-30', time: '19:00', spread: 35.5,  total: 58.5 },
-            { away: 'Toledo',           home: 'Kentucky',          date: '2025-08-30', time: '12:45', spread: 14.5,  total: 52.5 },
-            { away: 'Central Arkansas', home: 'Missouri',          date: '2025-08-28', time: '19:30', spread: 24.5,  total: 56.5 },
-            { away: 'Georgia State',    home: 'Ole Miss',          date: '2025-08-30', time: '19:45', spread: 28.5,  total: 63.5 },
-            { away: 'Mississippi State',home: 'Southern Miss',     date: '2025-08-30', time: '12:00', spread: -7.5,  total: 49.5 },
-            { away: 'Alabama A&M',      home: 'Arkansas',          date: '2025-08-30', time: '15:15', spread: 42.5,  total: 64.5 },
-            { away: 'LIU',              home: 'Florida',           date: '2025-08-30', time: '19:00', spread: 48.5,  total: 67.5 },
-            { away: 'Illinois State',   home: 'Oklahoma',          date: '2025-08-30', time: '18:00', spread: 35.5,  total: 61.5 },
-            { away: 'Syracuse',         home: 'Tennessee',         date: '2025-08-30', time: '12:00', spread: 17.5,  total: 56.5 },
-        ];
-
-        const SEC_CANON = [
-            'Alabama','Arkansas','Auburn','Florida','Georgia',
-            'Kentucky','LSU','Ole Miss','Mississippi State','Missouri',
-            'Oklahoma','South Carolina','Tennessee','Texas','Texas A&M','Vanderbilt'
-        ];
-
-        const TEAM_ALIASES = {
-            'Alabama': [/^Alabama\b/i, /\bCrimson Tide\b/i],
-            'Arkansas': [/^Arkansas\b/i, /\bRazorbacks\b/i],
-            'Auburn': [/^Auburn\b/i, /\bTigers\b/i],
-            'Florida': [/^Florida\b/i, /\bGators\b/i],
-            'Georgia': [/^Georgia\b/i, /\bBulldogs\b/i],
-            'Kentucky': [/^Kentucky\b/i, /\bWildcats\b/i],
-            'LSU': [/^LSU\b/i, /\bLouisiana State\b/i, /\bTigers\b/i],
-            'Ole Miss': [/^Ole Miss\b/i, /^Mississippi\b(?! State)/i, /\bRebels\b/i],
-            'Mississippi State': [/^Mississippi State\b/i, /\bMiss State\b/i, /\bBulldogs\b/i],
-            'Missouri': [/^Missouri\b/i, /\bMizzou\b/i, /\bTigers\b/i],
-            'Oklahoma': [/^Oklahoma\b/i, /\bSooners\b/i],
-            'South Carolina': [/^South Carolina\b/i, /\bGamecocks\b/i],
-            'Tennessee': [/^Tennessee\b/i, /\bVolunteers\b/i],
-            'Texas A&M': [/^Texas A&M\b/i, /\bAggies\b/i],
-            'Texas': [/^Texas(?! A&M)\b/i, /\bLonghorns\b/i],
-            'Vanderbilt': [/^Vanderbilt\b/i, /\bCommodores\b/i],
-        };
 
         // App State
         let currentUser = null;
@@ -905,104 +885,109 @@
             }
         }
 
-        function weekDaysISO(week) {
-            const start = new Date(SEASON_START.getTime() + (week - 1) * 7 * 24 * 3600 * 1000);
-            // Use simple 5-day window for CFB week
-            return Array.from({ length: 5 }, (_, i) => {
-                const d = new Date(start.getTime() + i * 24 * 3600 * 1000);
-                return d.toISOString().slice(0, 10);
-            });
-        }
-
-        // Try to load from API (will work when saved locally)
+        // API Integration - Single clean function
         async function tryAPILoad() {
             const container = document.getElementById('gamesList');
-            container.innerHTML = `<div class="loading">Loading Week ${currentWeek} games…</div>`;
+            container.innerHTML = `<div class="loading">🏈 Loading Week ${currentWeek} games from live API...</div>`;
 
             try {
-                // Backend already figures out the date range for the week
-                const resp = await fetch(`${BACKEND_BASE || ''}/api/games?week=${currentWeek}`, { cache: 'no-store' });
-                if (!resp.ok) throw new Error(`Backend error ${resp.status}`);
-
-                const { games } = await resp.json();  // <-- your backend returns { week, games }
-                if (!Array.isArray(games) || games.length === 0) {
-                    throw new Error('No games returned for this week');
+                console.log(`Fetching games for week ${currentWeek}`);
+                
+                const resp = await fetch(`${BACKEND_BASE || ''}/api/games?week=${currentWeek}`, { 
+                    cache: 'no-store',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log(`API Response Status: ${resp.status}`);
+                
+                if (!resp.ok) {
+                    const errorText = await resp.text();
+                    throw new Error(`Server responded with ${resp.status}: ${errorText}`);
                 }
 
-                // Overwrite whatever is in localStorage for this week
-                gameData[`week${currentWeek}`] = games;
+                const data = await resp.json();
+                console.log('Full API Response:', data);
+                
+                if (!data.games || !Array.isArray(data.games)) {
+                    throw new Error('Invalid response format from API');
+                }
+                
+                // Show debug info
+                const debugInfo = document.createElement('div');
+                debugInfo.className = 'debug-info';
+                debugInfo.innerHTML = `
+                    <h4>API Debug Info:</h4>
+                    <p><strong>Source:</strong> ${data.source}</p>
+                    <p><strong>Original Count:</strong> ${data.originalCount || 'N/A'}</p>
+                    <p><strong>SEC Filtered:</strong> ${data.secFilteredCount || 'N/A'}</p>
+                    <p><strong>Final Count:</strong> ${data.count}</p>
+                    <p><strong>Date Range:</strong> ${data.dateRange?.from} to ${data.dateRange?.to}</p>
+                    <p><strong>Has API Key:</strong> ${data.debug?.hasApiKey ? 'Yes' : 'No'}</p>
+                `;
+                
+                if (data.games.length === 0) {
+                    container.innerHTML = `
+                        <div class="error-message">
+                            <h3>No SEC games found for Week ${currentWeek}</h3>
+                            <p>This could mean:</p>
+                            <ul style="text-align: left; margin: 10px 0;">
+                                <li>No SEC teams are playing this week</li>
+                                <li>Games haven't been scheduled yet</li>
+                                <li>The date range doesn't include games</li>
+                                <li>API filtering removed all games</li>
+                            </ul>
+                            ${data.error ? `<p style="color: var(--accent); margin-top: 10px;">API Error: ${data.error}</p>` : ''}
+                        </div>
+                    `;
+                    container.appendChild(debugInfo);
+                    return;
+                }
+
+                // Store the fetched games
+                gameData[`week${currentWeek}`] = data.games;
                 saveToStorage();
-                displayGames(games);
-                showToast('Loaded current week from API ✅');
+                
+                // Display the games
+                displayGames(data.games);
+                
+                // Show success message with details
+                const sourceMsg = data.source === 'api' ? 'live API' : 
+                                 data.source === 'fallback' ? 'fallback data' : 'stored data';
+                
+                showToast(`✅ Loaded ${data.games.length} games from ${sourceMsg}`);
+                
+                // Log game details for debugging
+                console.log(`Loaded ${data.games.length} games for Week ${currentWeek}:`);
+                data.games.forEach(game => {
+                    console.log(`  ${game.away} @ ${game.home} (${game.date} ${game.time}) - Spread: ${game.spread}, Total: ${game.total}`);
+                });
+                
             } catch (err) {
-                console.error(err);
-                showToast('Couldn\'t load from API. Using fallback list.');
-                loadDefaultGames();
+                console.error('API Load Error:', err);
+                
+                // Show detailed error message
+                container.innerHTML = `
+                    <div class="error-message">
+                        <h3>❌ Failed to load games from API</h3>
+                        <p style="color: var(--accent); margin: 10px 0;">${err.message}</p>
+                        <p>Check the browser console for more details.</p>
+                        <button onclick="tryAPILoad()" style="
+                            margin-top: 15px; 
+                            padding: 10px 20px; 
+                            background: var(--accent); 
+                            color: white; 
+                            border: none; 
+                            border-radius: 8px; 
+                            cursor: pointer;
+                        ">🔄 Retry API Load</button>
+                    </div>
+                `;
+                
+                showToast(`Failed to load from API: ${err.message}`);
             }
-        }
-
-        function canonicalizeTeam(name) {
-            for (const [canon, patterns] of Object.entries(TEAM_ALIASES)) {
-                if (patterns.some(p => p.test(name))) return canon;
-            }
-            return name.trim();
-        }
-
-        function isSEC(name) {
-            return SEC_CANON.includes(canonicalizeTeam(name));
-        }
-
-        function transformAPIGames(apiGames) {
-            return apiGames.map(game => {
-                const gameDate = new Date(game.commence_time);
-                const bookmaker = game.bookmakers?.[0];
-                let spread = 0, total = 50;
-
-                if (bookmaker?.markets) {
-                    const spreadMarket = bookmaker.markets.find(m => m.key === 'spreads');
-                    const totalMarket  = bookmaker.markets.find(m => m.key === 'totals');
-
-                    if (spreadMarket?.outcomes) {
-                        const homeOutcome = spreadMarket.outcomes.find(o => o.name === game.home_team);
-                        if (typeof homeOutcome?.point === 'number') spread = homeOutcome.point;
-                    }
-                    if (totalMarket?.outcomes?.[0]?.point != null) {
-                        total = totalMarket.outcomes[0].point;
-                    }
-                }
-
-                const homeCanon = canonicalizeTeam(game.home_team);
-                const awayCanon = canonicalizeTeam(game.away_team);
-
-                return {
-                    id: game.id,
-                    home: homeCanon,
-                    away: awayCanon,
-                    spread,
-                    total,
-                    date: gameDate.toISOString().split('T')[0],
-                    time: gameDate.toTimeString().slice(0, 5),
-                    isOverUnder: homeCanon === 'South Carolina' || awayCanon === 'South Carolina',
-                    isSecMatchup: isSEC(homeCanon) && isSEC(awayCanon),
-                };
-            });
-        }
-
-        function loadDefaultGames() {
-            if (!gameData[`week${currentWeek}`] || gameData[`week${currentWeek}`].length === 0) {
-                // Load default Week 1 2025 games
-                if (currentWeek === 1) {
-                    const defaultGames = WEEK_1_2025_GAMES.map((game, index) => ({
-                        id: `default_w1_g${index}`,
-                        ...game,
-                        isOverUnder: game.home === 'South Carolina' || game.away === 'South Carolina',
-                        isSecMatchup: SEC_TEAMS.includes(game.home) && SEC_TEAMS.includes(game.away)
-                    }));
-                    gameData[`week${currentWeek}`] = defaultGames;
-                    saveToStorage();
-                }
-            }
-            displayGames(gameData[`week${currentWeek}`] || []);
         }
 
         function loadWeekData() {
@@ -1010,34 +995,37 @@
             if (stored && stored.length > 0) {
                 displayGames(stored);
             } else {
-                loadDefaultGames();
+                // Don't auto-load, let user click the button
+                const container = document.getElementById('gamesList');
+                container.innerHTML = `
+                    <div class="error-message">
+                        <h3>No games loaded for Week ${currentWeek}</h3>
+                        <p>Click "🔄 Load Live API" to fetch current games from the odds API.</p>
+                        <button onclick="tryAPILoad()" style="
+                            margin-top: 15px; 
+                            padding: 10px 20px; 
+                            background: var(--gradient-start); 
+                            color: white; 
+                            border: none; 
+                            border-radius: 8px; 
+                            cursor: pointer;
+                        ">🔄 Load Live API</button>
+                    </div>
+                `;
             }
         }
 
-        function updateGameSpread(gameId, newSpread) {
-            const games = gameData[`week${currentWeek}`];
-            const game = games.find(g => g.id === gameId);
-            if (game) {
-                game.spread = parseFloat(newSpread);
-                saveToStorage();
-            }
-        }
-
-        function updateGameTotal(gameId, newTotal) {
-            const games = gameData[`week${currentWeek}`];
-            const game = games.find(g => g.id === gameId);
-            if (game) {
-                game.total = parseFloat(newTotal);
-                saveToStorage();
-            }
-        }
-
-        // Display games
+        // Improved game display function
         function displayGames(games) {
             const container = document.getElementById('gamesList');
             
             if (!games || games.length === 0) {
-                container.innerHTML = '<div class="error-message">No games available for this week. Try loading from API or check back later.</div>';
+                container.innerHTML = `
+                    <div class="error-message">
+                        <h3>No games available for Week ${currentWeek}</h3>
+                        <p>Click the button above to load live data from the API.</p>
+                    </div>
+                `;
                 return;
             }
             
@@ -1059,28 +1047,29 @@
                             <div class="game-title">
                                 ${game.away} @ ${game.home}
                                 ${game.isSecMatchup ? '<span class="sec-badge">SEC</span>' : ''}
+                                <span class="sec-badge" style="background: var(--accent); margin-left: 5px;">O/U ONLY</span>
                             </div>
                             <div class="game-meta">
                                 ${isCompleted ? '<span class="final-badge">FINAL</span>' : ''}
-                                <span class="game-time">${game.date} ${game.time}</span>
+                                <span class="game-time">${formatGameTime(game.date, game.time)}</span>
                             </div>
                         </div>
                         <div class="ou-section">
                             <div class="ou-header">
-                                Total Points: ${game.total}
+                                🎯 Total Points: ${game.total}
                             </div>
                             <div class="ou-options">
                                 <label class="ou-option ${userPick === 'over' ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
                                     <input type="radio" name="${game.id}" value="over" 
                                            ${userPick === 'over' ? 'checked' : ''}
                                            ${isCompleted ? 'disabled' : ''}>
-                                    <div>Over ${game.total}</div>
+                                    <div>📈 Over ${game.total}</div>
                                 </label>
                                 <label class="ou-option ${userPick === 'under' ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
                                     <input type="radio" name="${game.id}" value="under"
                                            ${userPick === 'under' ? 'checked' : ''}
                                            ${isCompleted ? 'disabled' : ''}>
-                                    <div>Under ${game.total}</div>
+                                    <div>📉 Under ${game.total}</div>
                                 </label>
                             </div>
                         </div>
@@ -1091,6 +1080,10 @@
                     const awaySpread = -homeSpread;
                     const userPick = userPicks[game.id];
                     
+                    // Determine favorite/underdog
+                    const homeFavorite = homeSpread < 0;
+                    const awayFavorite = awaySpread < 0;
+                    
                     gameCard.innerHTML = `
                         <div class="game-header">
                             <div class="game-title">
@@ -1099,7 +1092,7 @@
                             </div>
                             <div class="game-meta">
                                 ${isCompleted ? '<span class="final-badge">FINAL</span>' : ''}
-                                <span class="game-time">${game.date} ${game.time}</span>
+                                <span class="game-time">${formatGameTime(game.date, game.time)}</span>
                             </div>
                         </div>
                         <div class="teams">
@@ -1108,8 +1101,12 @@
                                        ${userPick === game.away ? 'checked' : ''}
                                        ${isCompleted ? 'disabled' : ''}>
                                 <div class="team-info">
-                                    <span class="team-name">${game.away}</span>
-                                    <span class="spread">${awaySpread > 0 ? '+' : ''}${awaySpread.toFixed(1)}</span>
+                                    <span class="team-name">
+                                        ${awayFavorite ? '⭐ ' : ''}${game.away}
+                                    </span>
+                                    <span class="spread ${awayFavorite ? 'favorite' : 'underdog'}">
+                                        ${awaySpread > 0 ? '+' : ''}${awaySpread.toFixed(1)}
+                                    </span>
                                 </div>
                             </label>
                             <label class="team-option ${userPick === game.home ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
@@ -1117,10 +1114,17 @@
                                        ${userPick === game.home ? 'checked' : ''}
                                        ${isCompleted ? 'disabled' : ''}>
                                 <div class="team-info">
-                                    <span class="team-name">${game.home}</span>
-                                    <span class="spread">${homeSpread > 0 ? '+' : ''}${homeSpread.toFixed(1)}</span>
+                                    <span class="team-name">
+                                        ${homeFavorite ? '⭐ ' : ''}${game.home}
+                                    </span>
+                                    <span class="spread ${homeFavorite ? 'favorite' : 'underdog'}">
+                                        ${homeSpread > 0 ? '+' : ''}${homeSpread.toFixed(1)}
+                                    </span>
                                 </div>
                             </label>
+                        </div>
+                        <div style="text-align: center; margin-top: 10px; font-size: 0.8rem; opacity: 0.7;">
+                            Total: ${game.total} | Pick the team that covers the spread
                         </div>
                     `;
                 }
@@ -1132,6 +1136,35 @@
             document.querySelectorAll('input[type="radio"]:not(:disabled)').forEach(input => {
                 input.addEventListener('change', handlePickChange);
             });
+        }
+
+        // Helper function to format game time nicely
+        function formatGameTime(date, time) {
+            try {
+                const gameDate = new Date(`${date}T${time}:00-04:00`); // Assuming ET
+                const now = new Date();
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const gameDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
+                
+                const dayDiff = (gameDay - today) / (1000 * 60 * 60 * 24);
+                
+                let dayText;
+                if (dayDiff === 0) dayText = 'Today';
+                else if (dayDiff === 1) dayText = 'Tomorrow';
+                else if (dayDiff === -1) dayText = 'Yesterday';
+                else if (dayDiff < 7 && dayDiff > 0) dayText = gameDate.toLocaleDateString('en', { weekday: 'short' });
+                else dayText = gameDate.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+                
+                const timeText = gameDate.toLocaleTimeString('en', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    timeZone: 'America/New_York'
+                });
+                
+                return `${dayText} ${timeText} ET`;
+            } catch (err) {
+                return `${date} ${time}`;
+            }
         }
 
         function handlePickChange(e) {
@@ -1151,26 +1184,42 @@
             });
         }
 
+        // Enhanced submit picks with better validation
         function submitPicks() {
             if (!currentUser) {
-                showToast('Please login first!');
+                showToast('❌ Please login first!');
                 return;
             }
             
             const weekGames = gameData[`week${currentWeek}`];
             if (!weekGames || weekGames.length === 0) {
-                showToast('No games available!');
+                showToast('❌ No games available for this week!');
                 return;
             }
             
-            const allPicked = weekGames.every(game => userPicks[game.id]);
+            // Check if all games have picks
+            const unpickedGames = weekGames.filter(game => !userPicks[game.id]);
             
-            if (!allPicked) {
-                const unpickedCount = weekGames.filter(game => !userPicks[game.id]).length;
-                showToast(`Please make picks for all games! (${unpickedCount} remaining)`);
+            if (unpickedGames.length > 0) {
+                const unpickedList = unpickedGames.map(g => `${g.away} @ ${g.home}`).join('\n• ');
+                showToast(`❌ Please make picks for all ${unpickedGames.length} remaining games:\n• ${unpickedList}`);
+                
+                // Scroll to first unpicked game
+                const firstUnpicked = document.querySelector(`input[name="${unpickedGames[0].id}"]`);
+                if (firstUnpicked) {
+                    firstUnpicked.closest('.game-card').scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                    firstUnpicked.closest('.game-card').style.border = '2px solid var(--accent)';
+                    setTimeout(() => {
+                        firstUnpicked.closest('.game-card').style.border = '';
+                    }, 3000);
+                }
                 return;
             }
             
+            // Save picks
             if (!allUsers[currentUser].picks) {
                 allUsers[currentUser].picks = {};
             }
@@ -1179,19 +1228,21 @@
             
             saveToStorage();
             updateStandings();
-            showToast('Picks submitted successfully!');
+            
+            // Show success message with pick summary
+            const spreadPicks = Object.values(userPicks).filter(pick => pick !== 'over' && pick !== 'under').length;
+            const ouPicks = Object.values(userPicks).filter(pick => pick === 'over' || pick === 'under').length;
+            
+            showToast(`✅ All picks submitted! (${spreadPicks} spreads, ${ouPicks} O/U)`);
         }
 
         function markWinners() {
-            // Simple UI to mark game winners for manual scoring
             const games = gameData[`week${currentWeek}`];
             if (!games || games.length === 0) {
                 showToast('No games to score');
                 return;
             }
             
-            // For now, just mark all games as complete with random scores
-            // In real use, you'd have a UI to enter actual scores
             showToast('Feature coming soon: Manual score entry');
         }
 
@@ -1208,7 +1259,6 @@
             Object.keys(allUsers).forEach(username => {
                 const picks = allUsers[username].picks?.[`week${currentWeek}`];
                 if (picks) {
-                    // For now, show pick count
                     weekPicks[username] = Object.keys(picks).length;
                 }
             });
@@ -1332,341 +1382,6 @@
         } else {
             init();
         }
-        // Updated API integration functions
-        async function tryAPILoad() {
-            const container = document.getElementById('gamesList');
-            container.innerHTML = `<div class="loading">🏈 Loading Week ${currentWeek} games from API...</div>`;
-        
-            try {
-                console.log(`Fetching games for week ${currentWeek}`);
-                
-                const resp = await fetch(`${BACKEND_BASE || ''}/api/games?week=${currentWeek}`, { 
-                    cache: 'no-store',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (!resp.ok) {
-                    const errorText = await resp.text();
-                    throw new Error(`Server responded with ${resp.status}: ${errorText}`);
-                }
-        
-                const data = await resp.json();
-                console.log('API Response:', data);
-                
-                if (!data.games || !Array.isArray(data.games)) {
-                    throw new Error('Invalid response format from API');
-                }
-                
-                if (data.games.length === 0) {
-                    container.innerHTML = `
-                        <div class="error-message">
-                            <h3>No games found for Week ${currentWeek}</h3>
-                            <p>This could mean:</p>
-                            <ul style="text-align: left; margin: 10px 0;">
-                                <li>Games haven't been scheduled yet</li>
-                                <li>The week is outside the season dates</li>
-                                <li>No SEC teams are playing this week</li>
-                            </ul>
-                            ${data.error ? `<p style="color: var(--accent); margin-top: 10px;">Error: ${data.error}</p>` : ''}
-                        </div>
-                    `;
-                    return;
-                }
-        
-                // Store the fetched games
-                gameData[`week${currentWeek}`] = data.games;
-                saveToStorage();
-                
-                // Display the games
-                displayGames(data.games);
-                
-                // Show success message with details
-                const sourceMsg = data.source === 'api' ? 'live API' : 
-                                 data.source === 'fallback' ? 'fallback data' : 'stored data';
-                
-                showToast(`✅ Loaded ${data.games.length} games from ${sourceMsg}`);
-                
-                // Log game details for debugging
-                console.log(`Loaded ${data.games.length} games for Week ${currentWeek}:`);
-                data.games.forEach(game => {
-                    console.log(`  ${game.away} @ ${game.home} (${game.date} ${game.time}) - Spread: ${game.spread}, Total: ${game.total}`);
-                });
-                
-            } catch (err) {
-                console.error('API Load Error:', err);
-                
-                // Show detailed error message
-                container.innerHTML = `
-                    <div class="error-message">
-                        <h3>❌ Failed to load games from API</h3>
-                        <p style="color: var(--accent); margin: 10px 0;">${err.message}</p>
-                        <p>Falling back to stored data or default games...</p>
-                    </div>
-                `;
-                
-                showToast(`Failed to load from API: ${err.message}`);
-                
-                // Try to load from stored data or fallback
-                setTimeout(() => {
-                    loadDefaultGames();
-                }, 2000);
-            }
-        }
-        
-        // Improved game display function with better error handling
-        function displayGames(games) {
-            const container = document.getElementById('gamesList');
-            
-            if (!games || games.length === 0) {
-                container.innerHTML = `
-                    <div class="error-message">
-                        <h3>No games available for Week ${currentWeek}</h3>
-                        <p>Try loading from API or check back later.</p>
-                        <button onclick="tryAPILoad()" style="
-                            margin-top: 15px; 
-                            padding: 10px 20px; 
-                            background: var(--accent); 
-                            color: white; 
-                            border: none; 
-                            border-radius: 8px; 
-                            cursor: pointer;
-                        ">🔄 Retry API Load</button>
-                    </div>
-                `;
-                return;
-            }
-            
-            container.innerHTML = '';
-            const weekResults = gameResults[`week${currentWeek}`] || {};
-            
-            games.forEach(game => {
-                const result = weekResults[game.id];
-                const isCompleted = result && result.completed;
-                const gameCard = document.createElement('div');
-                gameCard.className = `game-card ${game.isSecMatchup ? 'sec-matchup' : ''} ${isCompleted ? 'completed' : ''}`;
-                
-                if (game.isOverUnder) {
-                    // South Carolina O/U game
-                    const userPick = userPicks[game.id];
-                    
-                    gameCard.innerHTML = `
-                        <div class="game-header">
-                            <div class="game-title">
-                                ${game.away} @ ${game.home}
-                                ${game.isSecMatchup ? '<span class="sec-badge">SEC</span>' : ''}
-                                <span class="sec-badge" style="background: var(--accent); margin-left: 5px;">O/U ONLY</span>
-                            </div>
-                            <div class="game-meta">
-                                ${isCompleted ? '<span class="final-badge">FINAL</span>' : ''}
-                                <span class="game-time">${formatGameTime(game.date, game.time)}</span>
-                            </div>
-                        </div>
-                        <div class="ou-section">
-                            <div class="ou-header">
-                                🎯 Total Points: ${game.total}
-                            </div>
-                            <div class="ou-options">
-                                <label class="ou-option ${userPick === 'over' ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
-                                    <input type="radio" name="${game.id}" value="over" 
-                                           ${userPick === 'over' ? 'checked' : ''}
-                                           ${isCompleted ? 'disabled' : ''}>
-                                    <div>📈 Over ${game.total}</div>
-                                </label>
-                                <label class="ou-option ${userPick === 'under' ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
-                                    <input type="radio" name="${game.id}" value="under"
-                                           ${userPick === 'under' ? 'checked' : ''}
-                                           ${isCompleted ? 'disabled' : ''}>
-                                    <div>📉 Under ${game.total}</div>
-                                </label>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    // Regular spread game
-                    const homeSpread = parseFloat(game.spread);
-                    const awaySpread = -homeSpread;
-                    const userPick = userPicks[game.id];
-                    
-                    // Determine favorite/underdog
-                    const homeFavorite = homeSpread < 0;
-                    const awayFavorite = awaySpread < 0;
-                    
-                    gameCard.innerHTML = `
-                        <div class="game-header">
-                            <div class="game-title">
-                                ${game.away} @ ${game.home}
-                                ${game.isSecMatchup ? '<span class="sec-badge">SEC</span>' : ''}
-                            </div>
-                            <div class="game-meta">
-                                ${isCompleted ? '<span class="final-badge">FINAL</span>' : ''}
-                                <span class="game-time">${formatGameTime(game.date, game.time)}</span>
-                            </div>
-                        </div>
-                        <div class="teams">
-                            <label class="team-option ${userPick === game.away ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
-                                <input type="radio" name="${game.id}" value="${game.away}"
-                                       ${userPick === game.away ? 'checked' : ''}
-                                       ${isCompleted ? 'disabled' : ''}>
-                                <div class="team-info">
-                                    <span class="team-name">
-                                        ${awayFavorite ? '⭐ ' : ''}${game.away}
-                                    </span>
-                                    <span class="spread ${awayFavorite ? 'favorite' : 'underdog'}">
-                                        ${awaySpread > 0 ? '+' : ''}${awaySpread.toFixed(1)}
-                                    </span>
-                                </div>
-                            </label>
-                            <label class="team-option ${userPick === game.home ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
-                                <input type="radio" name="${game.id}" value="${game.home}"
-                                       ${userPick === game.home ? 'checked' : ''}
-                                       ${isCompleted ? 'disabled' : ''}>
-                                <div class="team-info">
-                                    <span class="team-name">
-                                        ${homeFavorite ? '⭐ ' : ''}${game.home}
-                                    </span>
-                                    <span class="spread ${homeFavorite ? 'favorite' : 'underdog'}">
-                                        ${homeSpread > 0 ? '+' : ''}${homeSpread.toFixed(1)}
-                                    </span>
-                                </div>
-                            </label>
-                        </div>
-                        <div style="text-align: center; margin-top: 10px; font-size: 0.8rem; opacity: 0.7;">
-                            Total: ${game.total} | Pick the team that covers the spread
-                        </div>
-                    `;
-                }
-                
-                container.appendChild(gameCard);
-            });
-            
-            // Add event listeners for picks
-            document.querySelectorAll('input[type="radio"]:not(:disabled)').forEach(input => {
-                input.addEventListener('change', handlePickChange);
-            });
-        }
-        
-        // Helper function to format game time nicely
-        function formatGameTime(date, time) {
-            try {
-                const gameDate = new Date(`${date}T${time}:00-04:00`); // Assuming ET
-                const now = new Date();
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const gameDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
-                
-                const dayDiff = (gameDay - today) / (1000 * 60 * 60 * 24);
-                
-                let dayText;
-                if (dayDiff === 0) dayText = 'Today';
-                else if (dayDiff === 1) dayText = 'Tomorrow';
-                else if (dayDiff === -1) dayText = 'Yesterday';
-                else if (dayDiff < 7 && dayDiff > 0) dayText = gameDate.toLocaleDateString('en', { weekday: 'short' });
-                else dayText = gameDate.toLocaleDateString('en', { month: 'short', day: 'numeric' });
-                
-                const timeText = gameDate.toLocaleTimeString('en', { 
-                    hour: 'numeric', 
-                    minute: '2-digit',
-                    timeZone: 'America/New_York'
-                });
-                
-                return `${dayText} ${timeText} ET`;
-            } catch (err) {
-                return `${date} ${time}`;
-            }
-        }
-        
-        // Enhanced submit picks with better validation
-        function submitPicks() {
-            if (!currentUser) {
-                showToast('❌ Please login first!');
-                return;
-            }
-            
-            const weekGames = gameData[`week${currentWeek}`];
-            if (!weekGames || weekGames.length === 0) {
-                showToast('❌ No games available for this week!');
-                return;
-            }
-            
-            // Check if all games have picks
-            const unpickedGames = weekGames.filter(game => !userPicks[game.id]);
-            
-            if (unpickedGames.length > 0) {
-                const unpickedList = unpickedGames.map(g => `${g.away} @ ${g.home}`).join('\n• ');
-                showToast(`❌ Please make picks for all ${unpickedGames.length} remaining games:\n• ${unpickedList}`);
-                
-                // Scroll to first unpicked game
-                const firstUnpicked = document.querySelector(`input[name="${unpickedGames[0].id}"]`);
-                if (firstUnpicked) {
-                    firstUnpicked.closest('.game-card').scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'center' 
-                    });
-                    firstUnpicked.closest('.game-card').style.border = '2px solid var(--accent)';
-                    setTimeout(() => {
-                        firstUnpicked.closest('.game-card').style.border = '';
-                    }, 3000);
-                }
-                return;
-            }
-            
-            // Save picks
-            if (!allUsers[currentUser].picks) {
-                allUsers[currentUser].picks = {};
-            }
-            
-            allUsers[currentUser].picks[`week${currentWeek}`] = { ...userPicks };
-            
-            saveToStorage();
-            updateStandings();
-            
-            // Show success message with pick summary
-            const spreadPicks = Object.values(userPicks).filter(pick => pick !== 'over' && pick !== 'under').length;
-            const ouPicks = Object.values(userPicks).filter(pick => pick === 'over' || pick === 'under').length;
-            
-            showToast(`✅ All picks submitted! (${spreadPicks} spreads, ${ouPicks} O/U)`);
-        }
-        
-        // Add CSS for favorite/underdog styling
-        const additionalCSS = `
-        .spread.favorite {
-            background: rgba(102, 126, 234, 0.3) !important;
-            color: var(--gradient-start) !important;
-        }
-        
-        .spread.underdog {
-            background: rgba(233, 69, 96, 0.2) !important;
-            color: var(--accent) !important;
-        }
-        
-        .team-name {
-            display: flex;
-            align-items: center;
-        }
-        `;
-        
-        // Add the CSS to the page
-        if (!document.getElementById('additional-styles')) {
-            const style = document.createElement('style');
-            style.id = 'additional-styles';
-            style.textContent = additionalCSS;
-            document.head.appendChild(style);
-        }
-        
-        // Auto-load API data when the page loads
-        function autoLoadAPI() {
-            // Only auto-load for current week and if no games are already loaded
-            const currentWeekGames = gameData[`week${currentWeek}`];
-            if (!currentWeekGames || currentWeekGames.length === 0) {
-                console.log('Auto-loading API data for current week...');
-                tryAPILoad();
-            }
-        }
-        
-        // Call auto-load after a short delay to let the page settle
-        setTimeout(autoLoadAPI, 1000);
     </script>
 </body>
 </html>
