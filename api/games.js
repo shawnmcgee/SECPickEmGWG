@@ -1,9 +1,45 @@
 // /api/games.js
-const SEC_TEAMS = [
-  "Alabama","Arkansas","Auburn","Florida","Georgia","Kentucky","LSU","Ole Miss",
-  "Mississippi State","Missouri","Oklahoma","South Carolina","Tennessee","Texas",
-  "Texas A&M","Vanderbilt"
+const SEC_TEAMS_FULL = [
+  "Alabama Crimson Tide",
+  "Arkansas Razorbacks", // Best guess following naming pattern
+  "Auburn Tigers",
+  "Florida Gators", // Best guess following naming pattern
+  "Georgia Bulldogs",
+  "Kentucky Wildcats",
+  "LSU Tigers",
+  "Ole Miss Rebels",
+  "Mississippi State Bulldogs",
+  "Missouri Tigers",
+  "Oklahoma Sooners",
+  "South Carolina Gamecocks",
+  "Tennessee Volunteers",
+  "Texas Longhorns",
+  "Texas A&M Aggies",
+  "Vanderbilt Commodores"
 ];
+
+// Map full names to short names for display
+const TEAM_NAME_MAP = {
+  "Alabama Crimson Tide": "Alabama",
+  "Arkansas Razorbacks": "Arkansas",
+  "Auburn Tigers": "Auburn",
+  "Florida Gators": "Florida",
+  "Georgia Bulldogs": "Georgia",
+  "Kentucky Wildcats": "Kentucky",
+  "LSU Tigers": "LSU",
+  "Ole Miss Rebels": "Ole Miss",
+  "Mississippi State Bulldogs": "Mississippi State",
+  "Missouri Tigers": "Missouri",
+  "Oklahoma Sooners": "Oklahoma",
+  "South Carolina Gamecocks": "South Carolina",
+  "Tennessee Volunteers": "Tennessee",
+  "Texas Longhorns": "Texas",
+  "Texas A&M Aggies": "Texas A&M",
+  "Vanderbilt Commodores": "Vanderbilt"
+};
+
+// Short names for backward compatibility
+const SEC_TEAMS_SHORT = Object.values(TEAM_NAME_MAP);
 
 // 2025 Season starts Thursday, August 28th
 const SEASON_START = new Date("2025-08-28T00:00:00-04:00"); // ET
@@ -63,35 +99,20 @@ function formatEndDateForAPI(date) {
   return `${year}-${month}-${day}T23:59:59Z`;
 }
 
-function cleanTeamName(name) {
-  if (!name) return '';
+function isSecTeam(teamName) {
+  if (!teamName) return false;
   
-  // First check for exact SEC team matches (case insensitive)
-  for (const t of SEC_TEAMS) {
-    if (name.toLowerCase().includes(t.toLowerCase())) return t;
-  }
+  // Check for exact match with full SEC team names
+  return SEC_TEAMS_FULL.some(secTeam => 
+    teamName.toLowerCase() === secTeam.toLowerCase()
+  );
+}
+
+function getShortTeamName(fullTeamName) {
+  if (!fullTeamName) return '';
   
-  // Handle specific team name variations
-  const teamMappings = {
-    'Mississippi State': ['Miss State', 'Mississippi St'],
-    'Texas A&M': ['Texas A&M', 'TAMU'],
-    'Ole Miss': ['Mississippi', 'Miss', 'Ole Miss'],
-    'South Carolina': ['S Carolina', 'SC'],
-  };
-  
-  for (const [canonical, variations] of Object.entries(teamMappings)) {
-    for (const variation of variations) {
-      if (name.toLowerCase().includes(variation.toLowerCase())) {
-        return canonical;
-      }
-    }
-  }
-  
-  // Clean up common mascot names but preserve the core team name
-  return name
-    .replace(/\b(Crimson Tide|Razorbacks|Tigers|Gators|Bulldogs|Wildcats|Rebels|Volunteers|Longhorns|Aggies|Commodores|Sooners|Gamecocks)\b/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  // Return the mapped short name, or the original if not found
+  return TEAM_NAME_MAP[fullTeamName] || fullTeamName;
 }
 
 function transformGames(arr) {
@@ -101,14 +122,16 @@ function transformGames(arr) {
     const { date, time } = toETParts(g.commence_time);
     const homeRaw = g.home_team || '';
     const awayRaw = g.away_team || '';
-    const home = cleanTeamName(homeRaw);
-    const away = cleanTeamName(awayRaw);
+    
+    // Get short display names
+    const home = getShortTeamName(homeRaw);
+    const away = getShortTeamName(awayRaw);
 
     console.log(`Processing: ${awayRaw} @ ${homeRaw} -> ${away} @ ${home}`);
 
     let spread = 0, total = 50;
     
-    // Use the first available bookmaker (we'll filter to DraftKings in the API call)
+    // Use the first available bookmaker (DraftKings)
     const bm = (g.bookmakers||[])[0];
     if (bm && bm.markets) {
       const sp = bm.markets.find(m => m.key === 'spreads');
@@ -126,6 +149,12 @@ function transformGames(arr) {
       }
     }
 
+    // Skip games without betting lines (like Florida vs LIU)
+    if (spread === 0 && total === 50) {
+      console.log(`Skipping game with no betting lines: ${away} @ ${home}`);
+      return null;
+    }
+
     const gameObj = {
       id: g.id || `${away}@${home}_${date}_${time}`,
       home, 
@@ -137,12 +166,12 @@ function transformGames(arr) {
       originalHomeTeam: homeRaw,
       originalAwayTeam: awayRaw,
       isOverUnder: home === 'South Carolina' || away === 'South Carolina',
-      isSecMatchup: SEC_TEAMS.includes(home) && SEC_TEAMS.includes(away)
+      isSecMatchup: SEC_TEAMS_SHORT.includes(home) && SEC_TEAMS_SHORT.includes(away)
     };
 
     console.log(`Game created:`, gameObj);
     return gameObj;
-  });
+  }).filter(game => game !== null); // Remove games with no betting lines
 }
 
 export default async function handler(req, res) {
@@ -171,8 +200,7 @@ export default async function handler(req, res) {
     
     console.log(`=== API Request for Week ${week} ===`);
     console.log(`Date range: ${commenceTimeFrom} to ${commenceTimeTo}`);
-    console.log(`Start date object:`, start);
-    console.log(`End date object:`, end);
+    console.log('SEC teams we\'re looking for:', SEC_TEAMS_FULL);
 
     const apiKey = process.env.ODDS_API_KEY;
     if (!apiKey) {
@@ -191,13 +219,11 @@ export default async function handler(req, res) {
     apiUrl.searchParams.set('markets', 'spreads,totals');
     apiUrl.searchParams.set('oddsFormat', 'american');
     apiUrl.searchParams.set('dateFormat', 'iso');
-    apiUrl.searchParams.set('bookmakers', 'draftkings'); // Single bookmaker for consistency
+    apiUrl.searchParams.set('bookmakers', 'draftkings');
     apiUrl.searchParams.set('commenceTimeFrom', commenceTimeFrom);
     apiUrl.searchParams.set('commenceTimeTo', commenceTimeTo);
     
     console.log('Full API URL:', apiUrl.toString());
-    console.log('commenceTimeFrom parameter:', commenceTimeFrom);
-    console.log('commenceTimeTo parameter:', commenceTimeTo);
 
     const response = await fetch(apiUrl.toString(), { 
       method: 'GET',
@@ -208,7 +234,6 @@ export default async function handler(req, res) {
     });
     
     console.log(`API Response Status: ${response.status}`);
-    console.log(`API Response Headers:`, Object.fromEntries(response.headers.entries()));
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -231,26 +256,31 @@ export default async function handler(req, res) {
     const data = await response.json();
     console.log(`Received ${data.length} total games from API`);
     
-    // Log first few games to see what we're getting
-    if (data.length > 0) {
-      console.log('Sample games from API:');
-      data.slice(0, 3).forEach((game, i) => {
-        console.log(`  ${i + 1}. ${game.away_team} @ ${game.home_team} (${game.commence_time})`);
-      });
-    }
+    // Log all team names we're getting from the API for debugging
+    console.log('All team names from API:');
+    const allTeams = new Set();
+    data.forEach(game => {
+      allTeams.add(game.home_team);
+      allTeams.add(game.away_team);
+    });
+    Array.from(allTeams).sort().forEach(team => console.log(`  "${team}"`));
     
-    // Filter to games involving SEC teams (more lenient matching)
+    // Filter to games involving SEC teams using exact name matching
     const secGames = data.filter(g => {
-      const homeTeam = (g.home_team || '').toLowerCase();
-      const awayTeam = (g.away_team || '').toLowerCase();
+      const homeTeam = g.home_team || '';
+      const awayTeam = g.away_team || '';
       
-      const isSecGame = SEC_TEAMS.some(secTeam => 
-        homeTeam.includes(secTeam.toLowerCase()) || 
-        awayTeam.includes(secTeam.toLowerCase())
-      );
+      const homeIsSec = isSecTeam(homeTeam);
+      const awayIsSec = isSecTeam(awayTeam);
+      const isSecGame = homeIsSec || awayIsSec;
       
       if (isSecGame) {
-        console.log(`✓ SEC Game found: ${g.away_team} @ ${g.home_team}`);
+        console.log(`✓ SEC Game found: ${g.away_team} @ ${g.home_team} (Home SEC: ${homeIsSec}, Away SEC: ${awayIsSec})`);
+      } else {
+        // Log some non-SEC games to see what we're filtering out
+        if (homeTeam.toLowerCase().includes('florida') || awayTeam.toLowerCase().includes('florida')) {
+          console.log(`✗ Non-SEC Florida game filtered: ${g.away_team} @ ${g.home_team}`);
+        }
       }
       
       return isSecGame;
@@ -305,8 +335,8 @@ export default async function handler(req, res) {
         apiUrl: apiUrl.toString(),
         hasApiKey: !!apiKey,
         responseStatus: response.status,
-        startDate: start.toISOString(),
-        endDate: end.toISOString()
+        secTeamsLookedFor: SEC_TEAMS_FULL,
+        allTeamsFound: Array.from(allTeams).sort()
       }
     };
 
