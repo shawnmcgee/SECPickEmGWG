@@ -1,0 +1,13 @@
+{
+  "name": "sec-pickem-2025",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.0"
+  }
+}
