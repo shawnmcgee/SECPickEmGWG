@@ -1,36 +1,40 @@
-import { sql, testConnection } from '../lib/db';
-
 export default async function handler(req, res) {
   try {
-    // Test basic connection
-    const connected = await testConnection();
+    // Check if environment variable exists
+    const hasDbUrl = !!process.env.DATABASE_URL;
     
-    if (!connected) {
-      return res.status(500).json({ 
-        error: 'Database connection failed',
-        hasUrl: !!process.env.DATABASE_URL 
+    // Try to load the module
+    let moduleLoaded = false;
+    let sql = null;
+    
+    try {
+      const { neon } = await import('@neondatabase/serverless');
+      moduleLoaded = true;
+      
+      if (hasDbUrl) {
+        sql = neon(process.env.DATABASE_URL);
+        // Test query
+        const result = await sql`SELECT NOW() as time`;
+        
+        return res.status(200).json({
+          success: true,
+          hasDbUrl,
+          moduleLoaded,
+          connected: true,
+          time: result[0].time
+        });
+      }
+    } catch (error) {
+      return res.status(500).json({
+        hasDbUrl,
+        moduleLoaded,
+        error: error.message
       });
     }
-    
-    // Test tables exist
-    const tables = await sql`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public'
-    `;
-    
-    return res.status(200).json({ 
-      success: true, 
-      tables: tables.map(t => t.table_name),
-      timestamp: new Date().toISOString()
-    });
-    
   } catch (error) {
-    console.error('Database test error:', error);
-    return res.status(500).json({ 
-      error: error.message,
-      stack: error.stack,
-      hasUrl: !!process.env.DATABASE_URL
+    return res.status(500).json({
+      error: 'Critical failure',
+      message: error.message
     });
   }
 }
