@@ -1078,7 +1078,7 @@
                                        ${isCompleted ? 'disabled' : ''}>
                                 <div class="team-info">
                                     <span class="team-name">
-                                        ${awayFavorite ? '⭐ ' : ''}${game.away}
+                                        ${game.away}
                                     </span>
                                     <span class="spread ${awayFavorite ? 'favorite' : 'underdog'}">
                                         ${awaySpread > 0 ? '+' : ''}${awaySpread.toFixed(1)}
@@ -1091,7 +1091,7 @@
                                        ${isCompleted ? 'disabled' : ''}>
                                 <div class="team-info">
                                     <span class="team-name">
-                                        ${homeFavorite ? '⭐ ' : ''}${game.home}
+                                        🏠 ${game.home}
                                     </span>
                                     <span class="spread ${homeFavorite ? 'favorite' : 'underdog'}">
                                         ${homeSpread > 0 ? '+' : ''}${homeSpread.toFixed(1)}
@@ -1427,3 +1427,4 @@
     </script>
 </body>
 </html>
+
