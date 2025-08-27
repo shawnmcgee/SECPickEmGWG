@@ -157,6 +157,45 @@
             cursor: not-allowed;
         }
 
+        .admin-section {
+            background: rgba(233, 69, 96, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .admin-section.visible {
+            display: block;
+        }
+
+        .admin-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .admin-controls input, .admin-controls button {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+
+        .admin-controls button {
+            background: var(--accent);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .admin-controls button:hover {
+            background: rgba(233, 69, 96, 0.8);
+        }
+
         .main-content {
             display: grid;
             grid-template-columns: 1fr;
@@ -229,22 +268,6 @@
             color: var(--accent);
             font-weight: 600;
             white-space: nowrap;
-        }
-
-        .delete-game {
-            background: rgba(233, 69, 96, 0.2);
-            border: 1px solid var(--accent);
-            color: var(--accent);
-            padding: 4px 8px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.7rem;
-            transition: all 0.3s ease;
-        }
-
-        .delete-game:hover {
-            background: var(--accent);
-            color: white;
         }
 
         .final-badge, .sec-badge {
@@ -324,13 +347,6 @@
             align-items: center;
         }
 
-        .team-score {
-            font-size: clamp(1rem, 3vw, 1.25rem);
-            font-weight: bold;
-            color: var(--accent);
-            margin-left: auto;
-        }
-
         .spread {
             background: rgba(233, 69, 96, 0.2);
             color: var(--accent);
@@ -349,17 +365,6 @@
         .spread.underdog {
             background: rgba(233, 69, 96, 0.2) !important;
             color: var(--accent) !important;
-        }
-
-        .spread-input {
-            width: 50px;
-            padding: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid var(--border);
-            border-radius: 5px;
-            color: var(--text);
-            text-align: center;
-            font-size: 0.8rem;
         }
 
         .ou-section {
@@ -469,19 +474,6 @@
             background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
             border-left-color: var(--gradient-start);
             font-weight: 600;
-        }
-
-        .rank {
-            width: 25px;
-            height: 25px;
-            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.75rem;
-            flex-shrink: 0;
         }
 
         .standing-name {
@@ -633,18 +625,6 @@
             opacity: 0.8;
         }
 
-        .debug-info {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 15px;
-            margin: 15px 0;
-            font-family: monospace;
-            font-size: 0.8rem;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
         /* Desktop styles */
         @media (min-width: 1024px) {
             .container {
@@ -745,6 +725,10 @@
             .login-form {
                 padding: 20px;
             }
+
+            .admin-controls {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -753,7 +737,7 @@
     
     <header>
         <div class="header-content">
-            <h1>🏈 SEC Pick'em League 2025</h1>
+            <h1>SEC Pick'em League 2025</h1>
             <div class="user-info">
                 <span id="username">Guest</span>
                 <button id="logoutBtn" style="display: none;">Logout</button>
@@ -769,8 +753,22 @@
                 <button id="nextWeek">Next →</button>
             </div>
             <div class="week-controls">
-                <button id="loadApiBtn">🔄 Load Live API</button>
-                <button id="updateScoresBtn">📊 Mark Winners</button>
+                <button id="loadApiBtn">Load Live API</button>
+                <button id="updateScoresBtn">Mark Winners</button>
+                <button id="adminToggle">Admin</button>
+            </div>
+        </div>
+
+        <div class="admin-section" id="adminSection">
+            <h3>Admin Controls</h3>
+            <div class="admin-controls">
+                <input type="password" id="adminPassword" placeholder="Admin Password">
+                <input type="text" id="userToDelete" placeholder="Username to delete">
+                <button id="deleteUserBtn">Delete User</button>
+                <input type="text" id="gameIdForScore" placeholder="Game ID">
+                <input type="number" id="homeScore" placeholder="Home Score">
+                <input type="number" id="awayScore" placeholder="Away Score">
+                <button id="enterScoreBtn">Enter Score</button>
             </div>
         </div>
 
@@ -805,7 +803,7 @@
     <script>
         // 2025 Season Configuration
         const BACKEND_BASE = ''; // same origin on Vercel
-        const SEASON_START = new Date('2025-08-28'); // 2025 season start
+        const SEASON_START = new Date('2025-08-28');
         
         // SEC Teams
         const SEC_TEAMS = ['Alabama', 'Arkansas', 'Auburn', 'Florida', 'Georgia', 
@@ -816,24 +814,24 @@
         let currentUser = null;
         let currentWeek = 1;
         let userPicks = {};
-        let allUsers = {};
         let gameData = {};
         let gameResults = {};
 
         // Initialize
         function init() {
-            loadFromStorage();
             setupEventListeners();
             setCurrentWeekByDate();
             
-            if (!currentUser) {
-                showLoginModal();
-            } else {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = savedUser;
                 hideLoginModal();
                 updateUserDisplay();
+                loadUserPicks();
+            } else {
+                showLoginModal();
             }
             
-            // Load default games or stored games
             loadWeekData();
             updateStandings();
         }
@@ -843,57 +841,76 @@
             const weeksSinceStart = Math.floor((now - SEASON_START) / (7 * 24 * 60 * 60 * 1000));
             currentWeek = Math.max(1, Math.min(15, weeksSinceStart + 1));
             
-            // For testing, default to Week 1 if before season
             if (now < SEASON_START) {
                 currentWeek = 1;
             }
             document.getElementById('currentWeek').textContent = `Week ${currentWeek}`;
         }
 
-        // Storage functions
-        function loadFromStorage() {
-            const stored = localStorage.getItem('secPickem2025');
-            if (stored) {
-                const data = JSON.parse(stored);
-                allUsers = data.users || {};
-                gameData = data.gameData || {};
-                gameResults = data.gameResults || {};
-            }
-            
-            const user = localStorage.getItem('currentUser');
-            if (user) {
-                currentUser = user;
-                if (allUsers[currentUser] && allUsers[currentUser].picks && allUsers[currentUser].picks[`week${currentWeek}`]) {
-                    userPicks = allUsers[currentUser].picks[`week${currentWeek}`];
-                } else {
-                    userPicks = {};
+        // Database Integration Functions
+        async function loadUserPicks() {
+            if (!currentUser) return;
+
+            try {
+                const response = await fetch(`/api/picks?userName=${encodeURIComponent(currentUser)}&week=${currentWeek}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    userPicks = data.picks || {};
+                    console.log(`Loaded ${Object.keys(userPicks).length} picks for ${currentUser} week ${currentWeek}`);
+                    
+                    // Refresh game display to show picks
+                    if (gameData[`week${currentWeek}`]) {
+                        displayGames(gameData[`week${currentWeek}`]);
+                    }
                 }
+            } catch (error) {
+                console.error('Error loading user picks:', error);
             }
         }
 
-        function saveToStorage() {
-            const data = {
-                users: allUsers,
-                gameData: gameData,
-                gameResults: gameResults,
-                currentWeek: currentWeek
-            };
-            localStorage.setItem('secPickem2025', JSON.stringify(data));
-            
-            if (currentUser) {
-                localStorage.setItem('currentUser', currentUser);
+        async function savePicksToDatabase() {
+            if (!currentUser || !gameData[`week${currentWeek}`]) return false;
+
+            try {
+                const picks = Object.entries(userPicks).map(([gameId, selection]) => ({
+                    gameId,
+                    selection
+                }));
+
+                const response = await fetch('/api/picks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userName: currentUser,
+                        week: currentWeek,
+                        picks,
+                        games: gameData[`week${currentWeek}`]
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Picks saved to database:', result);
+                    return true;
+                } else {
+                    console.error('Failed to save picks:', response.statusText);
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error saving picks to database:', error);
+                return false;
             }
         }
 
-        // API Integration - Single clean function
+        // API Integration
         async function tryAPILoad() {
             const container = document.getElementById('gamesList');
-            container.innerHTML = `<div class="loading">🏈 Loading Week ${currentWeek} games from live API...</div>`;
+            container.innerHTML = `<div class="loading">Loading Week ${currentWeek} games from live API...</div>`;
 
             try {
                 console.log(`Fetching games for week ${currentWeek}`);
                 
-                const resp = await fetch(`${BACKEND_BASE || ''}/api/games?week=${currentWeek}`, { 
+                const resp = await fetch(`/api/games?week=${currentWeek}`, { 
                     cache: 'no-store',
                     headers: {
                         'Accept': 'application/json',
@@ -901,79 +918,42 @@
                     }
                 });
                 
-                console.log(`API Response Status: ${resp.status}`);
-                
                 if (!resp.ok) {
                     const errorText = await resp.text();
                     throw new Error(`Server responded with ${resp.status}: ${errorText}`);
                 }
 
                 const data = await resp.json();
-                console.log('Full API Response:', data);
+                console.log('API Response:', data);
                 
                 if (!data.games || !Array.isArray(data.games)) {
                     throw new Error('Invalid response format from API');
                 }
                 
-                // Show debug info
-                const debugInfo = document.createElement('div');
-                debugInfo.className = 'debug-info';
-                debugInfo.innerHTML = `
-                    <h4>API Debug Info:</h4>
-                    <p><strong>Source:</strong> ${data.source}</p>
-                    <p><strong>Original Count:</strong> ${data.originalCount || 'N/A'}</p>
-                    <p><strong>SEC Filtered:</strong> ${data.secFilteredCount || 'N/A'}</p>
-                    <p><strong>Final Count:</strong> ${data.count}</p>
-                    <p><strong>Date Range:</strong> ${data.dateRange?.from} to ${data.dateRange?.to}</p>
-                    <p><strong>Has API Key:</strong> ${data.debug?.hasApiKey ? 'Yes' : 'No'}</p>
-                `;
-                
                 if (data.games.length === 0) {
                     container.innerHTML = `
                         <div class="error-message">
                             <h3>No SEC games found for Week ${currentWeek}</h3>
-                            <p>This could mean:</p>
-                            <ul style="text-align: left; margin: 10px 0;">
-                                <li>No SEC teams are playing this week</li>
-                                <li>Games haven't been scheduled yet</li>
-                                <li>The date range doesn't include games</li>
-                                <li>API filtering removed all games</li>
-                            </ul>
-                            ${data.error ? `<p style="color: var(--accent); margin-top: 10px;">API Error: ${data.error}</p>` : ''}
+                            <p>No SEC teams are playing with available betting lines this week.</p>
                         </div>
                     `;
-                    container.appendChild(debugInfo);
                     return;
                 }
 
                 // Store the fetched games
                 gameData[`week${currentWeek}`] = data.games;
-                saveToStorage();
                 
                 // Display the games
                 displayGames(data.games);
                 
-                // Show success message with details
-                const sourceMsg = data.source === 'api' ? 'live API' : 
-                                 data.source === 'fallback' ? 'fallback data' : 'stored data';
-                
-                showToast(`✅ Loaded ${data.games.length} games from ${sourceMsg}`);
-                
-                // Log game details for debugging
-                console.log(`Loaded ${data.games.length} games for Week ${currentWeek}:`);
-                data.games.forEach(game => {
-                    console.log(`  ${game.away} @ ${game.home} (${game.date} ${game.time}) - Spread: ${game.spread}, Total: ${game.total}`);
-                });
+                showToast(`Loaded ${data.games.length} games from live API`);
                 
             } catch (err) {
                 console.error('API Load Error:', err);
-                
-                // Show detailed error message
                 container.innerHTML = `
                     <div class="error-message">
-                        <h3>❌ Failed to load games from API</h3>
+                        <h3>Failed to load games from API</h3>
                         <p style="color: var(--accent); margin: 10px 0;">${err.message}</p>
-                        <p>Check the browser console for more details.</p>
                         <button onclick="tryAPILoad()" style="
                             margin-top: 15px; 
                             padding: 10px 20px; 
@@ -982,10 +962,9 @@
                             border: none; 
                             border-radius: 8px; 
                             cursor: pointer;
-                        ">🔄 Retry API Load</button>
+                        ">Retry API Load</button>
                     </div>
                 `;
-                
                 showToast(`Failed to load from API: ${err.message}`);
             }
         }
@@ -995,12 +974,11 @@
             if (stored && stored.length > 0) {
                 displayGames(stored);
             } else {
-                // Don't auto-load, let user click the button
                 const container = document.getElementById('gamesList');
                 container.innerHTML = `
                     <div class="error-message">
                         <h3>No games loaded for Week ${currentWeek}</h3>
-                        <p>Click "🔄 Load Live API" to fetch current games from the odds API.</p>
+                        <p>Click "Load Live API" to fetch current games.</p>
                         <button onclick="tryAPILoad()" style="
                             margin-top: 15px; 
                             padding: 10px 20px; 
@@ -1009,13 +987,12 @@
                             border: none; 
                             border-radius: 8px; 
                             cursor: pointer;
-                        ">🔄 Load Live API</button>
+                        ">Load Live API</button>
                     </div>
                 `;
             }
         }
 
-        // Improved game display function
         function displayGames(games) {
             const container = document.getElementById('gamesList');
             
@@ -1030,11 +1007,9 @@
             }
             
             container.innerHTML = '';
-            const weekResults = gameResults[`week${currentWeek}`] || {};
             
             games.forEach(game => {
-                const result = weekResults[game.id];
-                const isCompleted = result && result.completed;
+                const isCompleted = gameResults[game.id]?.completed;
                 const gameCard = document.createElement('div');
                 gameCard.className = `game-card ${game.isSecMatchup ? 'sec-matchup' : ''} ${isCompleted ? 'completed' : ''}`;
                 
@@ -1052,24 +1027,25 @@
                             <div class="game-meta">
                                 ${isCompleted ? '<span class="final-badge">FINAL</span>' : ''}
                                 <span class="game-time">${formatGameTime(game.date, game.time)}</span>
+                                <small style="opacity: 0.7;">ID: ${game.id}</small>
                             </div>
                         </div>
                         <div class="ou-section">
                             <div class="ou-header">
-                                🎯 Total Points: ${game.total}
+                                Total Points: ${game.total}
                             </div>
                             <div class="ou-options">
                                 <label class="ou-option ${userPick === 'over' ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
                                     <input type="radio" name="${game.id}" value="over" 
                                            ${userPick === 'over' ? 'checked' : ''}
                                            ${isCompleted ? 'disabled' : ''}>
-                                    <div>📈 Over ${game.total}</div>
+                                    <div>Over ${game.total}</div>
                                 </label>
                                 <label class="ou-option ${userPick === 'under' ? 'selected' : ''} ${isCompleted ? 'disabled' : ''}">
                                     <input type="radio" name="${game.id}" value="under"
                                            ${userPick === 'under' ? 'checked' : ''}
                                            ${isCompleted ? 'disabled' : ''}>
-                                    <div>📉 Under ${game.total}</div>
+                                    <div>Under ${game.total}</div>
                                 </label>
                             </div>
                         </div>
@@ -1080,7 +1056,6 @@
                     const awaySpread = -homeSpread;
                     const userPick = userPicks[game.id];
                     
-                    // Determine favorite/underdog
                     const homeFavorite = homeSpread < 0;
                     const awayFavorite = awaySpread < 0;
                     
@@ -1093,6 +1068,7 @@
                             <div class="game-meta">
                                 ${isCompleted ? '<span class="final-badge">FINAL</span>' : ''}
                                 <span class="game-time">${formatGameTime(game.date, game.time)}</span>
+                                <small style="opacity: 0.7;">ID: ${game.id}</small>
                             </div>
                         </div>
                         <div class="teams">
@@ -1138,10 +1114,9 @@
             });
         }
 
-        // Helper function to format game time nicely
         function formatGameTime(date, time) {
             try {
-                const gameDate = new Date(`${date}T${time}:00-04:00`); // Assuming ET
+                const gameDate = new Date(`${date}T${time}:00-04:00`);
                 const now = new Date();
                 const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const gameDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
@@ -1184,105 +1159,176 @@
             });
         }
 
-        // Enhanced submit picks with better validation
-        function submitPicks() {
+        async function submitPicks() {
             if (!currentUser) {
-                showToast('❌ Please login first!');
+                showToast('Please login first!');
                 return;
             }
             
             const weekGames = gameData[`week${currentWeek}`];
             if (!weekGames || weekGames.length === 0) {
-                showToast('❌ No games available for this week!');
+                showToast('No games available for this week!');
                 return;
             }
             
-            // Check if all games have picks
             const unpickedGames = weekGames.filter(game => !userPicks[game.id]);
             
             if (unpickedGames.length > 0) {
-                const unpickedList = unpickedGames.map(g => `${g.away} @ ${g.home}`).join('\n• ');
-                showToast(`❌ Please make picks for all ${unpickedGames.length} remaining games:\n• ${unpickedList}`);
-                
-                // Scroll to first unpicked game
+                showToast(`Please make picks for all ${unpickedGames.length} remaining games`);
                 const firstUnpicked = document.querySelector(`input[name="${unpickedGames[0].id}"]`);
                 if (firstUnpicked) {
                     firstUnpicked.closest('.game-card').scrollIntoView({ 
                         behavior: 'smooth', 
                         block: 'center' 
                     });
-                    firstUnpicked.closest('.game-card').style.border = '2px solid var(--accent)';
-                    setTimeout(() => {
-                        firstUnpicked.closest('.game-card').style.border = '';
-                    }, 3000);
                 }
                 return;
             }
             
-            // Save picks
-            if (!allUsers[currentUser].picks) {
-                allUsers[currentUser].picks = {};
+            // Save to database
+            const saved = await savePicksToDatabase();
+            if (saved) {
+                showToast('Picks submitted successfully!');
+                updateStandings();
+            } else {
+                showToast('Error saving picks. Please try again.');
             }
-            
-            allUsers[currentUser].picks[`week${currentWeek}`] = { ...userPicks };
-            
-            saveToStorage();
-            updateStandings();
-            
-            // Show success message with pick summary
-            const spreadPicks = Object.values(userPicks).filter(pick => pick !== 'over' && pick !== 'under').length;
-            const ouPicks = Object.values(userPicks).filter(pick => pick === 'over' || pick === 'under').length;
-            
-            showToast(`✅ All picks submitted! (${spreadPicks} spreads, ${ouPicks} O/U)`);
         }
 
-        function markWinners() {
-            const games = gameData[`week${currentWeek}`];
-            if (!games || games.length === 0) {
-                showToast('No games to score');
-                return;
-            }
-            
-            showToast('Feature coming soon: Manual score entry');
+        // Standings with database integration
+        async function updateStandings() {
+            await updateWeeklyStandings();
+            await updateSeasonStandings();
         }
 
-        // Standings
-        function updateStandings() {
-            updateWeeklyStandings();
-            updateSeasonStandings();
-        }
-
-        function updateWeeklyStandings() {
+        async function updateWeeklyStandings() {
             const container = document.getElementById('weeklyStandings');
-            const weekPicks = {};
             
-            Object.keys(allUsers).forEach(username => {
-                const picks = allUsers[username].picks?.[`week${currentWeek}`];
-                if (picks) {
-                    weekPicks[username] = Object.keys(picks).length;
+            try {
+                const response = await fetch(`/api/standings?week=${currentWeek}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.standings && data.standings.length > 0) {
+                        container.innerHTML = data.standings.map((standing, index) => {
+                            const isCurrentUser = standing.name === currentUser;
+                            return `
+                                <li class="standing-item ${isCurrentUser ? 'current-user' : ''}">
+                                    <span class="standing-name">#${index + 1} ${standing.name}</span>
+                                    <span class="standing-record">${standing.record || `${standing.wins}-${standing.losses}`}</span>
+                                </li>
+                            `;
+                        }).join('');
+                    } else {
+                        container.innerHTML = '<li style="text-align: center; padding: 20px; opacity: 0.5;">No picks submitted yet</li>';
+                    }
                 }
-            });
+            } catch (error) {
+                console.error('Error loading weekly standings:', error);
+                container.innerHTML = '<li style="text-align: center; padding: 20px; opacity: 0.5;">Error loading standings</li>';
+            }
+        }
+
+        async function updateSeasonStandings() {
+            const container = document.getElementById('seasonStandings');
             
-            if (Object.keys(weekPicks).length === 0) {
-                container.innerHTML = '<li style="text-align: center; padding: 20px; opacity: 0.5;">No picks submitted yet</li>';
+            try {
+                const response = await fetch('/api/standings?season=true');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.standings && data.standings.length > 0) {
+                        container.innerHTML = data.standings.map((standing, index) => {
+                            const isCurrentUser = standing.name === currentUser;
+                            const winPct = standing.winPercentage ? `(${standing.winPercentage}%)` : '';
+                            return `
+                                <li class="standing-item ${isCurrentUser ? 'current-user' : ''}">
+                                    <span class="standing-name">#${index + 1} ${standing.name}</span>
+                                    <span class="standing-record">${standing.wins}-${standing.losses} ${winPct}</span>
+                                </li>
+                            `;
+                        }).join('');
+                    } else {
+                        container.innerHTML = '<li style="text-align: center; padding: 20px; opacity: 0.5;">Season standings will appear after games complete</li>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading season standings:', error);
+                container.innerHTML = '<li style="text-align: center; padding: 20px; opacity: 0.5;">Error loading standings</li>';
+            }
+        }
+
+        // Admin functions
+        function toggleAdmin() {
+            const adminSection = document.getElementById('adminSection');
+            adminSection.classList.toggle('visible');
+        }
+
+        async function deleteUser() {
+            const userName = document.getElementById('userToDelete').value.trim();
+            const password = document.getElementById('adminPassword').value;
+            
+            if (!userName || !password) {
+                showToast('Username and admin password required');
                 return;
             }
             
-            container.innerHTML = Object.entries(weekPicks)
-                .map(([name, count]) => {
-                    const isCurrentUser = name === currentUser;
-                    return `
-                        <li class="standing-item ${isCurrentUser ? 'current-user' : ''}">
-                            <span class="standing-name">${name}</span>
-                            <span class="standing-record">${count} picks</span>
-                        </li>
-                    `;
-                }).join('');
+            if (confirm(`Delete user "${userName}" and all their picks?`)) {
+                try {
+                    const response = await fetch('/api/picks', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userName, adminPassword: password })
+                    });
+                    
+                    if (response.ok) {
+                        showToast(`User ${userName} deleted successfully`);
+                        document.getElementById('userToDelete').value = '';
+                        updateStandings();
+                    } else {
+                        const error = await response.json();
+                        showToast(`Error: ${error.error}`);
+                    }
+                } catch (error) {
+                    showToast(`Error deleting user: ${error.message}`);
+                }
+            }
         }
 
-        function updateSeasonStandings() {
-            const container = document.getElementById('seasonStandings');
-            container.innerHTML = '<li style="text-align: center; padding: 20px; opacity: 0.5;">Season standings will appear after games complete</li>';
+        async function enterScore() {
+            const gameId = document.getElementById('gameIdForScore').value.trim();
+            const homeScore = document.getElementById('homeScore').value;
+            const awayScore = document.getElementById('awayScore').value;
+            const password = document.getElementById('adminPassword').value;
+            
+            if (!gameId || homeScore === '' || awayScore === '' || !password) {
+                showToast('All fields required for score entry');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/results', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        gameId, 
+                        homeScore: parseInt(homeScore), 
+                        awayScore: parseInt(awayScore),
+                        adminPassword: password 
+                    })
+                });
+                
+                if (response.ok) {
+                    showToast(`Score entered: ${awayScore}-${homeScore}`);
+                    document.getElementById('gameIdForScore').value = '';
+                    document.getElementById('homeScore').value = '';
+                    document.getElementById('awayScore').value = '';
+                    updateStandings();
+                } else {
+                    const error = await response.json();
+                    showToast(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                showToast(`Error entering score: ${error.message}`);
+            }
         }
 
         // User management
@@ -1298,19 +1344,12 @@
             const name = document.getElementById('nameInput').value.trim();
             if (name) {
                 currentUser = name;
-                
-                if (!allUsers[name]) {
-                    allUsers[name] = {
-                        picks: {}
-                    };
-                }
-                
-                userPicks = allUsers[name].picks?.[`week${currentWeek}`] || {};
-                saveToStorage();
+                localStorage.setItem('currentUser', name);
                 hideLoginModal();
                 updateUserDisplay();
-                displayGames(gameData[`week${currentWeek}`] || []);
-                updateStandings();
+                loadUserPicks().then(() => {
+                    updateStandings();
+                });
             }
         }
 
@@ -1337,15 +1376,16 @@
             document.getElementById('prevWeek').disabled = currentWeek === 1;
             document.getElementById('nextWeek').disabled = currentWeek === 15;
             
-            if (currentUser && allUsers[currentUser]?.picks?.[`week${currentWeek}`]) {
-                userPicks = allUsers[currentUser].picks[`week${currentWeek}`];
+            userPicks = {};
+            if (currentUser) {
+                loadUserPicks().then(() => {
+                    loadWeekData();
+                    updateStandings();
+                });
             } else {
-                userPicks = {};
+                loadWeekData();
+                updateStandings();
             }
-            
-            loadWeekData();
-            updateStandings();
-            saveToStorage();
         }
 
         function showToast(message) {
@@ -1373,7 +1413,9 @@
             document.getElementById('nextWeek').addEventListener('click', () => changeWeek(1));
             document.getElementById('submitPicks').addEventListener('click', submitPicks);
             document.getElementById('loadApiBtn').addEventListener('click', tryAPILoad);
-            document.getElementById('updateScoresBtn').addEventListener('click', markWinners);
+            document.getElementById('adminToggle').addEventListener('click', toggleAdmin);
+            document.getElementById('deleteUserBtn').addEventListener('click', deleteUser);
+            document.getElementById('enterScoreBtn').addEventListener('click', enterScore);
         }
 
         // Initialize
