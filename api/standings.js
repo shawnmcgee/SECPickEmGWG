@@ -1,56 +1,206 @@
 // /api/standings.js
 import { sql } from '../lib/db';
 
-function covered(spread, homeScore, awayScore) {
-  const margin = homeScore - awayScore; // spread is for home team
-  return margin + (-spread) < 0 ? 'away' : 'home'; // home covers if margin > -spread
+function calculateSpreadWinner(spread, homeScore, awayScore, homeTeam, awayTeam, userSelection) {
+  const margin = homeScore - awayScore;
+  
+  if (userSelection === homeTeam) {
+    // User picked home team, they win if home covers the spread
+    return margin > Math.abs(spread);
+  } else {
+    // User picked away team, they win if away covers the spread  
+    return margin < -Math.abs(spread);
+  }
 }
-function ouResult(total, homeScore, awayScore) {
-  const pts = homeScore + awayScore;
-  return pts > total ? 'over' : (pts < total ? 'under' : 'push');
+
+function calculateTotalResult(total, homeScore, awayScore, userSelection) {
+  const totalPoints = homeScore + awayScore;
+  
+  if (userSelection === 'over') {
+    return totalPoints > total;
+  } else if (userSelection === 'under') {
+    return totalPoints < total;
+  }
+  
+  return false; // Push
+}
+
+function isPush(pickType, spread, total, homeScore, awayScore) {
+  if (pickType === 'spread') {
+    return Math.abs(homeScore - awayScore) === Math.abs(spread);
+  } else {
+    return (homeScore + awayScore) === total;
+  }
 }
 
 export default async function handler(req, res) {
   try {
-    const { week } = Object.fromEntries(new URL(req.url, 'http://x').searchParams);
-    const filter = week ? sql`WHERE g.week = ${Number(week)}` : sql``;
+    const { week, season } = Object.fromEntries(new URL(req.url, 'http://x').searchParams);
+    
+    if (req.method === 'GET') {
+      if (season === 'true') {
+        // Get season standings
+        console.log('Fetching season standings');
+        
+        const standings = await sql`
+          SELECT 
+            u.name,
+            COUNT(CASE 
+              WHEN r.is_final = true AND (
+                (p.pick_type = 'spread' AND 
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > ABS(g.spread)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) > ABS(g.spread)))) OR
+                (p.pick_type = 'total' AND
+                 ((p.selection = 'over' AND (r.home_score + r.away_score) > g.total) OR
+                  (p.selection = 'under' AND (r.home_score + r.away_score) < g.total)))
+              )
+              THEN 1 
+            END) as wins,
+            COUNT(CASE 
+              WHEN r.is_final = true AND (
+                (p.pick_type = 'spread' AND ABS(r.home_score - r.away_score) = ABS(g.spread)) OR
+                (p.pick_type = 'total' AND (r.home_score + r.away_score) = g.total)
+              )
+              THEN 1 
+            END) as pushes,
+            COUNT(CASE 
+              WHEN r.is_final = true
+              THEN 1
+            END) -
+            COUNT(CASE 
+              WHEN r.is_final = true AND (
+                (p.pick_type = 'spread' AND 
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > ABS(g.spread)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) > ABS(g.spread)))) OR
+                (p.pick_type = 'total' AND
+                 ((p.selection = 'over' AND (r.home_score + r.away_score) > g.total) OR
+                  (p.selection = 'under' AND (r.home_score + r.away_score) < g.total)))
+              )
+              THEN 1 
+            END) -
+            COUNT(CASE 
+              WHEN r.is_final = true AND (
+                (p.pick_type = 'spread' AND ABS(r.home_score - r.away_score) = ABS(g.spread)) OR
+                (p.pick_type = 'total' AND (r.home_score + r.away_score) = g.total)
+              )
+              THEN 1 
+            END) as losses
+          FROM users u
+          LEFT JOIN picks p ON u.id = p.user_id
+          LEFT JOIN games g ON p.game_id = g.id
+          LEFT JOIN results r ON g.id = r.game_id
+          GROUP BY u.name
+          HAVING COUNT(p.id) > 0
+          ORDER BY wins DESC, pushes DESC, losses ASC
+        `;
 
-    const rows = await sql`
-      SELECT u.name, p.pick_type, p.selection, p.line, g.week,
-             r.home_score, r.away_score, g.id AS game_id, g.spread, g.total
-      FROM picks p
-      JOIN users u ON u.id = p.user_id
-      JOIN games g ON g.id = p.game_id
-      JOIN results r ON r.game_id = g.id
-      ${filter}
-      AND r.home_score IS NOT NULL AND r.away_score IS NOT NULL
-    `;
+        console.log(`Found season standings for ${standings.length} users`);
+        
+        return res.status(200).json({
+          standings: standings.map(s => ({
+            name: s.name,
+            wins: parseInt(s.wins) || 0,
+            losses: parseInt(s.losses) || 0,
+            pushes: parseInt(s.pushes) || 0,
+            winPercentage: s.wins + s.losses > 0 ? 
+              Math.round((s.wins / (s.wins + s.losses)) * 100) : 0
+          })),
+          scope: 'season',
+          week: null
+        });
+        
+      } else if (week) {
+        // Get weekly standings
+        console.log(`Fetching weekly standings for week ${week}`);
+        
+        const standings = await sql`
+          SELECT 
+            u.name,
+            COUNT(CASE 
+              WHEN r.is_final = true AND (
+                (p.pick_type = 'spread' AND 
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > ABS(g.spread)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) > ABS(g.spread)))) OR
+                (p.pick_type = 'total' AND
+                 ((p.selection = 'over' AND (r.home_score + r.away_score) > g.total) OR
+                  (p.selection = 'under' AND (r.home_score + r.away_score) < g.total)))
+              )
+              THEN 1 
+            END) as wins,
+            COUNT(CASE 
+              WHEN r.is_final = true AND (
+                (p.pick_type = 'spread' AND ABS(r.home_score - r.away_score) = ABS(g.spread)) OR
+                (p.pick_type = 'total' AND (r.home_score + r.away_score) = g.total)
+              )
+              THEN 1 
+            END) as pushes,
+            COUNT(p.id) as total_picks,
+            COUNT(CASE WHEN r.is_final = true THEN 1 END) as completed_picks
+          FROM users u
+          LEFT JOIN picks p ON u.id = p.user_id
+          LEFT JOIN games g ON p.game_id = g.id AND g.week = ${Number(week)}
+          LEFT JOIN results r ON g.id = r.game_id
+          GROUP BY u.name
+          HAVING COUNT(p.id) > 0
+          ORDER BY wins DESC, total_picks DESC
+        `;
 
-    const table = new Map(); // name -> { wins, losses, pushes }
-    for (const row of rows) {
-      const name = row.name;
-      if (!table.has(name)) table.set(name, { wins: 0, losses: 0, pushes: 0 });
+        console.log(`Found weekly standings for ${standings.length} users`);
 
-      if (row.pick_type === 'spread') {
-        const winner = covered(row.spread, row.home_score, row.away_score); // 'home'|'away'
-        if (row.home_score === row.away_score + row.spread) table.get(name).pushes++;
-        else if (row.selection === winner) table.get(name).wins++;
-        else table.get(name).losses++;
+        const formattedStandings = standings.map(s => {
+          const wins = parseInt(s.wins) || 0;
+          const pushes = parseInt(s.pushes) || 0;
+          const totalPicks = parseInt(s.total_picks) || 0;
+          const completedPicks = parseInt(s.completed_picks) || 0;
+          const losses = completedPicks - wins - pushes;
+          
+          return {
+            name: s.name,
+            wins,
+            losses: Math.max(0, losses),
+            pushes,
+            totalPicks,
+            completedPicks,
+            record: `${wins}-${Math.max(0, losses)}${pushes > 0 ? `-${pushes}` : ''}`
+          };
+        });
+        
+        return res.status(200).json({
+          standings: formattedStandings,
+          scope: 'week',
+          week: Number(week)
+        });
+        
       } else {
-        const result = ouResult(row.total, row.home_score, row.away_score); // 'over'|'under'|'push'
-        if (result === 'push') table.get(name).pushes++;
-        else if (row.selection === result) table.get(name).wins++;
-        else table.get(name).losses++;
+        // Get all users with pick counts (for current state)
+        const users = await sql`
+          SELECT 
+            u.name,
+            COUNT(p.id) as total_picks
+          FROM users u
+          LEFT JOIN picks p ON u.id = p.user_id
+          GROUP BY u.name
+          ORDER BY total_picks DESC
+        `;
+
+        return res.status(200).json({
+          standings: users.map(u => ({
+            name: u.name,
+            totalPicks: parseInt(u.total_picks) || 0
+          })),
+          scope: 'users'
+        });
       }
     }
 
-    // return leaderboard
-    const standings = [...table.entries()]
-      .map(([name, r]) => ({ name, ...r }))
-      .sort((a, b) => (b.wins - a.wins) || (a.losses - b.losses));
-
-    return res.status(200).json({ standings, scope: week ? 'week' : 'season', week: week ? Number(week) : null });
-  } catch (e) {
-    return res.status(500).json({ error: 'server', detail: String(e) });
+    res.setHeader('Allow', ['GET']);
+    return res.status(405).json({ error: 'Method not allowed' });
+    
+  } catch (error) {
+    console.error('Standings API error:', error);
+    return res.status(500).json({ 
+      error: 'Server error', 
+      detail: error.message 
+    });
   }
 }
