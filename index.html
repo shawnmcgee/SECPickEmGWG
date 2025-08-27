@@ -687,6 +687,10 @@
 
         /* Small mobile adjustments */
         @media (max-width: 480px) {
+            body {
+                background: var(--primary);
+            }
+
             .container {
                 padding: 8px;
             }
@@ -695,31 +699,140 @@
                 padding: 0 10px;
             }
 
+            h1 {
+                font-size: 1.3rem;
+            }
+
             .week-selector {
                 flex-direction: column;
                 align-items: stretch;
+                gap: 15px;
+                padding: 12px;
             }
 
             .week-navigation {
-                justify-content: center;
+                justify-content: space-between;
+                width: 100%;
+            }
+
+            .week-navigation h2 {
+                font-size: 1.2rem;
+                margin: 0 15px;
             }
 
             .week-controls {
-                justify-content: center;
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 10px;
+                width: 100%;
             }
 
-            .ou-options {
+            .week-selector button {
+                padding: 12px;
+                font-size: 0.9rem;
+                min-height: 44px;
+            }
+
+            .games-section {
+                padding: 15px;
+                background: rgba(22, 33, 62, 0.9);
+            }
+
+            .game-card {
+                padding: 12px;
+                margin-bottom: 12px;
+                background: rgba(30, 30, 50, 0.8);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .game-header {
+                flex-direction: column;
                 gap: 8px;
+                margin-bottom: 12px;
+                padding-bottom: 8px;
             }
 
-            .ou-option {
-                padding: 10px;
-                min-height: 50px;
+            .game-title {
+                font-size: 0.95rem;
+                line-height: 1.4;
+            }
+
+            .game-meta {
+                width: 100%;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .game-meta small {
+                display: none; /* Hide game ID on mobile */
             }
 
             .team-option {
-                padding: 10px;
-                min-height: 55px;
+                padding: 14px 12px;
+                min-height: 60px;
+                background: rgba(255, 255, 255, 0.06);
+                margin-bottom: 8px;
+                border-radius: 12px;
+            }
+
+            .team-option.selected {
+                background: linear-gradient(135deg, rgba(102, 126, 234, 0.3), rgba(118, 75, 162, 0.3));
+                border-width: 2px;
+            }
+
+            .team-name {
+                font-size: 1rem;
+                font-weight: 600;
+            }
+
+            .spread {
+                font-size: 0.9rem;
+                padding: 5px 12px;
+                font-weight: 700;
+            }
+
+            .ou-options {
+                gap: 10px;
+            }
+
+            .ou-option {
+                padding: 14px;
+                min-height: 60px;
+                font-size: 0.95rem;
+            }
+
+            .submit-picks {
+                padding: 16px;
+                font-size: 1.05rem;
+                margin-top: 20px;
+                min-height: 54px;
+                font-weight: 700;
+            }
+
+            .standings-card {
+                padding: 15px;
+                background: rgba(22, 33, 62, 0.9);
+            }
+
+            .standings-header {
+                font-size: 1.1rem;
+                margin-bottom: 12px;
+            }
+
+            .standing-item {
+                padding: 12px 10px;
+                margin-bottom: 10px;
+                background: rgba(255, 255, 255, 0.06);
+            }
+
+            .standing-name {
+                font-size: 0.95rem;
+            }
+
+            .standing-record {
+                font-size: 0.85rem;
+                padding: 5px 12px;
             }
 
             .login-form {
@@ -728,6 +841,13 @@
 
             .admin-controls {
                 grid-template-columns: 1fr;
+            }
+
+            .toast {
+                bottom: 30px;
+                font-size: 0.9rem;
+                padding: 14px 20px;
+                max-width: 85vw;
             }
         }
     </style>
@@ -1427,4 +1547,3 @@
     </script>
 </body>
 </html>
-
