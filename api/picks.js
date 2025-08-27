@@ -1,6 +1,14 @@
 // /api/picks.js
 import { sql } from '../lib/db';
 
+export default async function handler(req, res) {
+  if (!sql) {
+    return res.status(500).json({ 
+      error: 'Database not configured',
+      detail: 'Missing DATABASE_URL or @neondatabase/serverless package'
+    });
+  }
+
 async function ensureGameExists(gameData) {
   // Insert game if it doesn't exist
   await sql`
