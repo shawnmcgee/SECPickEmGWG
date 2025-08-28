@@ -1291,24 +1291,27 @@
                 return;
             }
             
-            const unpickedGames = weekGames.filter(game => !userPicks[game.id]);
-            
-            if (unpickedGames.length > 0) {
-                showToast(`Please make picks for all ${unpickedGames.length} remaining games`);
-                const firstUnpicked = document.querySelector(`input[name="${unpickedGames[0].id}"]`);
-                if (firstUnpicked) {
-                    firstUnpicked.closest('.game-card').scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'center' 
-                    });
-                }
+            // Check if any picks have been made
+            const pickedGames = Object.keys(userPicks).length;
+            if (pickedGames === 0) {
+                showToast('Please make at least one pick before submitting');
                 return;
+            }
+            
+            // Show warning if not all games are picked, but still allow submission
+            const unpickedGames = weekGames.filter(game => !userPicks[game.id]);
+            if (unpickedGames.length > 0) {
+                const confirmSubmit = confirm(`You have ${unpickedGames.length} unpicked games. Submit anyway?`);
+                if (!confirmSubmit) {
+                    return;
+                }
             }
             
             // Save to database
             const saved = await savePicksToDatabase();
             if (saved) {
-                showToast('Picks submitted successfully!');
+                const totalGames = weekGames.length;
+                showToast(`Submitted ${pickedGames} of ${totalGames} picks successfully!`);
                 updateStandings();
             } else {
                 showToast('Error saving picks. Please try again.');
