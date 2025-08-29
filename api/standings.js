@@ -97,17 +97,24 @@ export default async function handler(req, res) {
         console.log(`Found season standings for ${standings.length} users`);
         
         return res.status(200).json({
-          standings: standings.map(s => ({
+        standings: standings.map(s => {
+          const wins = parseInt(s.wins) || 0;
+          const losses = parseInt(s.losses) || 0;
+          const pushes = parseInt(s.pushes) || 0;
+          const totalGames = wins + losses;
+          const winPercentage = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+          
+          return {
             name: s.name,
-            wins: parseInt(s.wins) || 0,
-            losses: parseInt(s.losses) || 0,
-            pushes: parseInt(s.pushes) || 0,
-            winPercentage: s.wins + s.losses > 0 ? 
-              Math.round((s.wins / (s.wins + s.losses)) * 100) : 0
-          })),
-          scope: 'season',
-          week: null
-        });
+            wins,
+            losses,
+            pushes,
+            winPercentage
+          };
+        }),
+        scope: 'season',
+        week: null
+      });
         
       } else if (week) {
         // Get weekly standings
