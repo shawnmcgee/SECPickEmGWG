@@ -52,11 +52,23 @@ function weekFromDate(d) {
 }
 
 function weekRange(week) {
-  // Each week runs Thursday to Tuesday (6 days)
-  // Week 1: Thu Aug 28 - Tue Sep 2
-  // Week 2: Thu Sep 4 - Tue Sep 9, etc.
-  const start = new Date(SEASON_START.getTime() + (week-1)*7*24*60*60*1000);
-  const end = new Date(start.getTime() + 5*24*60*60*1000); // Thursday + 5 days = Tuesday
+  // Week 1: Thu Aug 28 - Sun Aug 31 (special case - 4 days)
+  // Other weeks: Thursday to following Wednesday (7 days)
+  
+  if (week === 1) {
+    // Special case for Week 1 - shorter week
+    const start = new Date("2025-08-28T00:00:00-04:00");
+    const end = new Date("2025-08-31T23:59:59-04:00");
+    return { start, end };
+  }
+  
+  // Regular weeks start on Thursday
+  // Week 2 starts Sep 4, Week 3 starts Sep 11, etc.
+  const weekOffset = week - 2; // Since we're calculating from Week 2
+  const baseDate = new Date("2025-09-04T00:00:00-04:00"); // Week 2 start
+  
+  const start = new Date(baseDate.getTime() + (weekOffset * 7 * 24 * 60 * 60 * 1000));
+  const end = new Date(start.getTime() + (6 * 24 * 60 * 60 * 1000) + (23 * 60 * 60 * 1000) + (59 * 60 * 1000) + (59 * 1000)); // Through following Wednesday
   
   return { start, end };
 }
