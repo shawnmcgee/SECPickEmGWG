@@ -874,6 +874,7 @@
             </div>
             <div class="week-controls">
                 <button id="loadApiBtn">Load Live API</button>
+                <button id="loadHistoryBtn">Load All Games</button>
                 <button id="updateScoresBtn">Mark Winners</button>
                 <button id="adminToggle">Admin</button>
             </div>
@@ -941,6 +942,18 @@
         function init() {
             setupEventListeners();
             setCurrentWeekByDate();
+            
+            // Load game data from localStorage
+            const storedGameData = localStorage.getItem('gameData');
+            if (storedGameData) {
+                try {
+                    gameData = JSON.parse(storedGameData);
+                    console.log('Loaded game data from localStorage');
+                } catch (e) {
+                    console.error('Failed to parse stored game data:', e);
+                    gameData = {};
+                }
+            }
             
             const savedUser = localStorage.getItem('currentUser');
             if (savedUser) {
@@ -1161,6 +1174,10 @@
             const stored = gameData[`week${currentWeek}`];
             if (stored && stored.length > 0) {
                 displayGames(stored);
+                // If user is logged in, also load their picks from database
+                if (currentUser) {
+                    loadUserPicks();
+                }
             } else {
                 const container = document.getElementById('gamesList');
                 container.innerHTML = `
@@ -1522,7 +1539,47 @@
             }
         }
 
-        // User management
+        // Load all games from database (including completed ones)
+        async function loadGamesFromDatabase() {
+            const container = document.getElementById('gamesList');
+            container.innerHTML = `<div class="loading">Loading all Week ${currentWeek} games from database...</div>`;
+
+            try {
+                const response = await fetch(`/api/games-history?week=${currentWeek}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load games: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (!data.games || data.games.length === 0) {
+                    // No games in database, try loading from API instead
+                    showToast('No saved games found, loading from API...');
+                    tryAPILoad();
+                    return;
+                }
+
+                // Store the games
+                gameData[`week${currentWeek}`] = data.games;
+                saveGameData();
+                
+                // Load user picks if logged in
+                if (currentUser) {
+                    await loadUserPicks();
+                }
+                
+                // Display the games
+                displayGames(data.games);
+                
+                showToast(`Loaded ${data.games.length} games from history`);
+                
+            } catch (error) {
+                console.error('Error loading games from database:', error);
+                showToast('Failed to load game history, trying API...');
+                tryAPILoad();
+            }
+        }
         function showLoginModal() {
             document.getElementById('loginModal').style.display = 'flex';
         }
@@ -1604,6 +1661,7 @@
             document.getElementById('nextWeek').addEventListener('click', () => changeWeek(1));
             document.getElementById('submitPicks').addEventListener('click', submitPicks);
             document.getElementById('loadApiBtn').addEventListener('click', tryAPILoad);
+            document.getElementById('loadHistoryBtn').addEventListener('click', loadGamesFromDatabase);
             document.getElementById('adminToggle').addEventListener('click', toggleAdmin);
             document.getElementById('deleteUserBtn').addEventListener('click', deleteUser);
             document.getElementById('enterScoreBtn').addEventListener('click', enterScore);
@@ -1618,5 +1676,3 @@
     </script>
 </body>
 </html>
-
-
