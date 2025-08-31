@@ -956,6 +956,16 @@
             updateStandings();
         }
 
+        // Function to save game data to localStorage
+        function saveGameData() {
+            try {
+                localStorage.setItem('gameData', JSON.stringify(gameData));
+                console.log('Saved game data to localStorage');
+            } catch (e) {
+                console.error('Failed to save game data:', e);
+            }
+        }
+
         function setCurrentWeekByDate() {
             const now = new Date();
             const weeksSinceStart = Math.floor((now - SEASON_START) / (7 * 24 * 60 * 60 * 1000));
@@ -1030,7 +1040,7 @@
             try {
                 console.log(`Fetching games for week ${currentWeek}`);
                 
-                // Save existing picks before loading new data
+                // Save existing picks and games before loading new data
                 const existingPicks = { ...userPicks };
                 const existingGames = gameData[`week${currentWeek}`] || [];
                 
@@ -1054,28 +1064,34 @@
                     throw new Error('Invalid response format from API');
                 }
                 
-                if (data.games.length === 0) {
+                // Create a map to track games
+                const gameMap = new Map();
+                const apiGameIds = new Set(data.games.map(g => g.id));
+                
+                // First, keep all existing games that are NOT in the API response
+                // (these are likely completed games that the API no longer returns)
+                existingGames.forEach(game => {
+                    if (!apiGameIds.has(game.id)) {
+                        // This game is not in API anymore, likely completed - keep it
+                        gameMap.set(game.id, game);
+                    }
+                });
+                
+                // Then add/update all games from the API
+                data.games.forEach(game => {
+                    gameMap.set(game.id, game);
+                });
+                
+                // If we have no games at all (existing + API), show appropriate message
+                if (gameMap.size === 0) {
                     container.innerHTML = `
                         <div class="error-message">
-                            <h3>No SEC games found for Week ${currentWeek}</h3>
-                            <p>No SEC teams are playing with available betting lines this week.</p>
+                            <h3>No games found for Week ${currentWeek}</h3>
+                            <p>Try loading games from the API or check back later.</p>
                         </div>
                     `;
                     return;
                 }
-
-                // Merge new games with existing games to preserve any that might have been removed from API
-                const gameMap = new Map();
-                
-                // Add existing games first
-                existingGames.forEach(game => {
-                    gameMap.set(game.id, game);
-                });
-                
-                // Update with new games from API (this will update spreads/totals if changed)
-                data.games.forEach(game => {
-                    gameMap.set(game.id, game);
-                });
                 
                 // Convert back to array and sort by date/time
                 const mergedGames = Array.from(gameMap.values()).sort((a, b) => {
@@ -1087,22 +1103,27 @@
                 // Store the merged games
                 gameData[`week${currentWeek}`] = mergedGames;
                 
+                // Save to localStorage
+                saveGameData();
+                
                 // Restore user picks
                 userPicks = existingPicks;
                 
                 // Display the games (will show with existing picks preserved)
                 displayGames(mergedGames);
                 
-                // If user had picks that are no longer in the game list, warn them
-                const removedGames = Object.keys(existingPicks).filter(
-                    gameId => !mergedGames.some(game => game.id === gameId)
-                );
+                // Count games by status
+                const completedCount = existingGames.length - data.games.length;
+                const upcomingCount = data.games.length;
+                const totalCount = mergedGames.length;
                 
-                if (removedGames.length > 0) {
-                    showToast(`Note: ${removedGames.length} game(s) you picked are no longer available`);
-                } else {
-                    showToast(`Loaded ${data.games.length} games from live API - picks preserved`);
+                let statusMessage = `Loaded ${upcomingCount} upcoming`;
+                if (completedCount > 0) {
+                    statusMessage += ` and kept ${completedCount} completed`;
                 }
+                statusMessage += ` games (${totalCount} total)`;
+                
+                showToast(statusMessage);
                 
                 // Save to database if user has picks
                 if (currentUser && Object.keys(userPicks).length > 0) {
@@ -1111,22 +1132,28 @@
                 
             } catch (err) {
                 console.error('API Load Error:', err);
-                container.innerHTML = `
-                    <div class="error-message">
-                        <h3>Failed to load games from API</h3>
-                        <p style="color: var(--accent); margin: 10px 0;">${err.message}</p>
-                        <button onclick="tryAPILoad()" style="
-                            margin-top: 15px; 
-                            padding: 10px 20px; 
-                            background: var(--accent); 
-                            color: white; 
-                            border: none; 
-                            border-radius: 8px; 
-                            cursor: pointer;
-                        ">Retry API Load</button>
-                    </div>
-                `;
-                showToast(`Failed to load from API: ${err.message}`);
+                
+                // If API fails but we have existing games, keep showing them
+                if (gameData[`week${currentWeek}`] && gameData[`week${currentWeek}`].length > 0) {
+                    displayGames(gameData[`week${currentWeek}`]);
+                    showToast(`API failed but showing ${gameData[`week${currentWeek}`].length} cached games`);
+                } else {
+                    container.innerHTML = `
+                        <div class="error-message">
+                            <h3>Failed to load games from API</h3>
+                            <p style="color: var(--accent); margin: 10px 0;">${err.message}</p>
+                            <button onclick="tryAPILoad()" style="
+                                margin-top: 15px; 
+                                padding: 10px 20px; 
+                                background: var(--accent); 
+                                color: white; 
+                                border: none; 
+                                border-radius: 8px; 
+                                cursor: pointer;
+                            ">Retry API Load</button>
+                        </div>
+                    `;
+                }
             }
         }
 
@@ -1591,4 +1618,5 @@
     </script>
 </body>
 </html>
+
 
