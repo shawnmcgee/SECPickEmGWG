@@ -1030,6 +1030,10 @@
             try {
                 console.log(`Fetching games for week ${currentWeek}`);
                 
+                // Save existing picks before loading new data
+                const existingPicks = { ...userPicks };
+                const existingGames = gameData[`week${currentWeek}`] || [];
+                
                 const resp = await fetch(`/api/games?week=${currentWeek}`, { 
                     cache: 'no-store',
                     headers: {
@@ -1060,13 +1064,50 @@
                     return;
                 }
 
-                // Store the fetched games
-                gameData[`week${currentWeek}`] = data.games;
+                // Merge new games with existing games to preserve any that might have been removed from API
+                const gameMap = new Map();
                 
-                // Display the games
-                displayGames(data.games);
+                // Add existing games first
+                existingGames.forEach(game => {
+                    gameMap.set(game.id, game);
+                });
                 
-                showToast(`Loaded ${data.games.length} games from live API`);
+                // Update with new games from API (this will update spreads/totals if changed)
+                data.games.forEach(game => {
+                    gameMap.set(game.id, game);
+                });
+                
+                // Convert back to array and sort by date/time
+                const mergedGames = Array.from(gameMap.values()).sort((a, b) => {
+                    const dateCompare = a.date.localeCompare(b.date);
+                    if (dateCompare !== 0) return dateCompare;
+                    return a.time.localeCompare(b.time);
+                });
+
+                // Store the merged games
+                gameData[`week${currentWeek}`] = mergedGames;
+                
+                // Restore user picks
+                userPicks = existingPicks;
+                
+                // Display the games (will show with existing picks preserved)
+                displayGames(mergedGames);
+                
+                // If user had picks that are no longer in the game list, warn them
+                const removedGames = Object.keys(existingPicks).filter(
+                    gameId => !mergedGames.some(game => game.id === gameId)
+                );
+                
+                if (removedGames.length > 0) {
+                    showToast(`Note: ${removedGames.length} game(s) you picked are no longer available`);
+                } else {
+                    showToast(`Loaded ${data.games.length} games from live API - picks preserved`);
+                }
+                
+                // Save to database if user has picks
+                if (currentUser && Object.keys(userPicks).length > 0) {
+                    savePicksToDatabase();
+                }
                 
             } catch (err) {
                 console.error('API Load Error:', err);
@@ -1550,3 +1591,4 @@
     </script>
 </body>
 </html>
+
