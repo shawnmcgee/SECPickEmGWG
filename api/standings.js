@@ -48,8 +48,8 @@ export default async function handler(req, res) {
             COUNT(CASE 
               WHEN r.is_final = true AND (
                 (p.pick_type = 'spread' AND 
-                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > ABS(g.spread)) OR
-                  (p.selection = g.away_team AND (r.away_score - r.home_score) > ABS(g.spread)))) OR
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > (-g.spread)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) > g.spread))) OR
                 (p.pick_type = 'total' AND
                  ((p.selection = 'over' AND (r.home_score + r.away_score) > g.total) OR
                   (p.selection = 'under' AND (r.home_score + r.away_score) < g.total)))
@@ -58,7 +58,9 @@ export default async function handler(req, res) {
             END) as wins,
             COUNT(CASE 
               WHEN r.is_final = true AND (
-                (p.pick_type = 'spread' AND ABS(r.home_score - r.away_score) = ABS(g.spread)) OR
+                (p.pick_type = 'spread' AND 
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) = (-g.spread)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) = g.spread))) OR
                 (p.pick_type = 'total' AND (r.home_score + r.away_score) = g.total)
               )
               THEN 1 
@@ -70,8 +72,8 @@ export default async function handler(req, res) {
             COUNT(CASE 
               WHEN r.is_final = true AND (
                 (p.pick_type = 'spread' AND 
-                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > ABS(g.spread)) OR
-                  (p.selection = g.away_team AND (r.away_score - r.home_score) > ABS(g.spread)))) OR
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > (-g.spread)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) > g.spread))) OR
                 (p.pick_type = 'total' AND
                  ((p.selection = 'over' AND (r.home_score + r.away_score) > g.total) OR
                   (p.selection = 'under' AND (r.home_score + r.away_score) < g.total)))
@@ -80,7 +82,9 @@ export default async function handler(req, res) {
             END) -
             COUNT(CASE 
               WHEN r.is_final = true AND (
-                (p.pick_type = 'spread' AND ABS(r.home_score - r.away_score) = ABS(g.spread)) OR
+                (p.pick_type = 'spread' AND 
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) = (-g.spread)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) = g.spread))) OR
                 (p.pick_type = 'total' AND (r.home_score + r.away_score) = g.total)
               )
               THEN 1 
@@ -97,24 +101,24 @@ export default async function handler(req, res) {
         console.log(`Found season standings for ${standings.length} users`);
         
         return res.status(200).json({
-        standings: standings.map(s => {
-          const wins = parseInt(s.wins) || 0;
-          const losses = parseInt(s.losses) || 0;
-          const pushes = parseInt(s.pushes) || 0;
-          const totalGames = wins + losses;
-          const winPercentage = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
-          
-          return {
-            name: s.name,
-            wins,
-            losses,
-            pushes,
-            winPercentage
-          };
-        }),
-        scope: 'season',
-        week: null
-      });
+          standings: standings.map(s => {
+            const wins = parseInt(s.wins) || 0;
+            const losses = parseInt(s.losses) || 0;
+            const pushes = parseInt(s.pushes) || 0;
+            const totalGames = wins + losses;
+            const winPercentage = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+            
+            return {
+              name: s.name,
+              wins,
+              losses,
+              pushes,
+              winPercentage
+            };
+          }),
+          scope: 'season',
+          week: null
+        });
         
       } else if (week) {
         // Get weekly standings
@@ -126,8 +130,8 @@ export default async function handler(req, res) {
             COUNT(CASE 
               WHEN r.is_final = true AND (
                 (p.pick_type = 'spread' AND 
-                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > ABS(g.spread)) OR
-                  (p.selection = g.away_team AND (r.away_score - r.home_score) > ABS(g.spread)))) OR
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > (-g.spread)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) > g.spread))) OR
                 (p.pick_type = 'total' AND
                  ((p.selection = 'over' AND (r.home_score + r.away_score) > g.total) OR
                   (p.selection = 'under' AND (r.home_score + r.away_score) < g.total)))
@@ -136,7 +140,9 @@ export default async function handler(req, res) {
             END) as wins,
             COUNT(CASE 
               WHEN r.is_final = true AND (
-                (p.pick_type = 'spread' AND ABS(r.home_score - r.away_score) = ABS(g.spread)) OR
+                (p.pick_type = 'spread' AND 
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) = (-g.spread)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) = g.spread))) OR
                 (p.pick_type = 'total' AND (r.home_score + r.away_score) = g.total)
               )
               THEN 1 
