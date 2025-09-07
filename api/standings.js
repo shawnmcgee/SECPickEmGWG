@@ -48,20 +48,20 @@ export default async function handler(req, res) {
             COUNT(CASE 
               WHEN r.is_final = true AND (
                 (p.pick_type = 'spread' AND 
-                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > (-g.spread)) OR
-                  (p.selection = g.away_team AND (r.away_score - r.home_score) > g.spread))) OR
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > (-p.line)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) > p.line))) OR
                 (p.pick_type = 'total' AND
-                 ((p.selection = 'over' AND (r.home_score + r.away_score) > g.total) OR
-                  (p.selection = 'under' AND (r.home_score + r.away_score) < g.total)))
+                 ((p.selection = 'over' AND (r.home_score + r.away_score) > p.line) OR
+                  (p.selection = 'under' AND (r.home_score + r.away_score) < p.line)))
               )
               THEN 1 
             END) as wins,
             COUNT(CASE 
               WHEN r.is_final = true AND (
                 (p.pick_type = 'spread' AND 
-                 ((p.selection = g.home_team AND (r.home_score - r.away_score) = (-g.spread)) OR
-                  (p.selection = g.away_team AND (r.away_score - r.home_score) = g.spread))) OR
-                (p.pick_type = 'total' AND (r.home_score + r.away_score) = g.total)
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) = (-p.line)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) = p.line))) OR
+                (p.pick_type = 'total' AND (r.home_score + r.away_score) = p.line)
               )
               THEN 1 
             END) as pushes,
@@ -72,20 +72,20 @@ export default async function handler(req, res) {
             COUNT(CASE 
               WHEN r.is_final = true AND (
                 (p.pick_type = 'spread' AND 
-                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > (-g.spread)) OR
-                  (p.selection = g.away_team AND (r.away_score - r.home_score) > g.spread))) OR
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > (-p.line)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) > p.line))) OR
                 (p.pick_type = 'total' AND
-                 ((p.selection = 'over' AND (r.home_score + r.away_score) > g.total) OR
-                  (p.selection = 'under' AND (r.home_score + r.away_score) < g.total)))
+                 ((p.selection = 'over' AND (r.home_score + r.away_score) > p.line) OR
+                  (p.selection = 'under' AND (r.home_score + r.away_score) < p.line)))
               )
               THEN 1 
             END) -
             COUNT(CASE 
               WHEN r.is_final = true AND (
                 (p.pick_type = 'spread' AND 
-                 ((p.selection = g.home_team AND (r.home_score - r.away_score) = (-g.spread)) OR
-                  (p.selection = g.away_team AND (r.away_score - r.home_score) = g.spread))) OR
-                (p.pick_type = 'total' AND (r.home_score + r.away_score) = g.total)
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) = (-p.line)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) = p.line))) OR
+                (p.pick_type = 'total' AND (r.home_score + r.away_score) = p.line)
               )
               THEN 1 
             END) as losses
@@ -130,20 +130,20 @@ export default async function handler(req, res) {
             COUNT(CASE 
               WHEN r.is_final = true AND (
                 (p.pick_type = 'spread' AND 
-                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > (-g.spread)) OR
-                  (p.selection = g.away_team AND (r.away_score - r.home_score) > g.spread))) OR
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) > (-p.line)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) > p.line))) OR
                 (p.pick_type = 'total' AND
-                 ((p.selection = 'over' AND (r.home_score + r.away_score) > g.total) OR
-                  (p.selection = 'under' AND (r.home_score + r.away_score) < g.total)))
+                 ((p.selection = 'over' AND (r.home_score + r.away_score) > p.line) OR
+                  (p.selection = 'under' AND (r.home_score + r.away_score) < p.line)))
               )
               THEN 1 
             END) as wins,
             COUNT(CASE 
               WHEN r.is_final = true AND (
                 (p.pick_type = 'spread' AND 
-                 ((p.selection = g.home_team AND (r.home_score - r.away_score) = (-g.spread)) OR
-                  (p.selection = g.away_team AND (r.away_score - r.home_score) = g.spread))) OR
-                (p.pick_type = 'total' AND (r.home_score + r.away_score) = g.total)
+                 ((p.selection = g.home_team AND (r.home_score - r.away_score) = (-p.line)) OR
+                  (p.selection = g.away_team AND (r.away_score - r.home_score) = p.line))) OR
+                (p.pick_type = 'total' AND (r.home_score + r.away_score) = p.line)
               )
               THEN 1 
             END) as pushes,
