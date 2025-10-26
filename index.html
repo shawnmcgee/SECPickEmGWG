@@ -270,14 +270,6 @@
             white-space: nowrap;
         }
 
-        .game-id {
-            opacity: 0.7;
-            font-size: 0.75rem;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-
         .final-badge, .sec-badge {
             background: var(--success);
             color: white;
@@ -772,13 +764,8 @@
                 align-items: center;
             }
 
-            .game-id {
-                display: inline-block;
-                font-size: 0.7rem;
-                opacity: 0.6;
-                background: rgba(255, 255, 255, 0.1);
-                padding: 2px 6px;
-                border-radius: 4px;
+            .game-meta small {
+                display: none; /*Hide game ID on mobile*/
             }
 
             .team-option {
@@ -1245,7 +1232,7 @@
                             <div class="game-meta">
                                 ${isCompleted ? '<span class="final-badge">FINAL</span>' : ''}
                                 <span class="game-time">${formatGameTime(game.date, game.time)}</span>
-                                <span class="game-id">ID: ${game.id}</span>
+                                <small style="opacity: 0.7;">ID: ${game.id}</small>
                             </div>
                         </div>
                         <div class="ou-section">
@@ -1286,7 +1273,7 @@
                             <div class="game-meta">
                                 ${isCompleted ? '<span class="final-badge">FINAL</span>' : ''}
                                 <span class="game-time">${formatGameTime(game.date, game.time)}</span>
-                                <span class="game-id">ID: ${game.id}</span>
+                                <small style="opacity: 0.7;">ID: ${game.id}</small>
                             </div>
                         </div>
                         <div class="teams">
@@ -1689,3 +1676,5 @@
     </script>
 </body>
 </html>
+
+
