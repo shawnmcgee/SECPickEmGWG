@@ -13,8 +13,14 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const { userName, week: rawWeek, picks } = readBody(req);
 
-      if (!userName || !rawWeek || !Array.isArray(picks) || picks.length === 0) {
+      // `!rawWeek` would reject week 0 -- the test week arrives as the JSON
+      // number 0, which is falsy. Check for actually-absent instead.
+      const weekMissing = rawWeek === undefined || rawWeek === null || rawWeek === '';
+      if (!userName || weekMissing || !Array.isArray(picks) || picks.length === 0) {
         return res.status(400).json({ error: 'userName, week, and picks required' });
+      }
+      if (!Number.isFinite(Number(rawWeek))) {
+        return res.status(400).json({ error: 'week must be a number' });
       }
       const week = clampWeek(rawWeek);
       const name = String(userName).trim().slice(0, 40);
