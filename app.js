@@ -51,7 +51,13 @@ function etMidnight(y, m, d) {
 }
 const rawWeekStart = (w) =>
   etMidnight(WEEK_1_DATE.y, WEEK_1_DATE.m, WEEK_1_DATE.d + (w - 1) * 7);
-const clampWeek = (w) => Math.max(MIN_WEEK, Math.min(MAX_WEEK, Math.trunc(Number(w) || 1)));
+// Careful: `Number(w) || 1` is wrong here. Week 0 is a real week and 0 is
+// falsy, so that form silently promotes the test week to week 1.
+function clampWeek(w) {
+  const n = Number(w);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(MIN_WEEK, Math.min(MAX_WEEK, Math.trunc(n)));
+}
 
 function weekFromDate(d = new Date()) {
   let w = Math.floor((d - rawWeekStart(1)) / (7 * 864e5)) + 1;

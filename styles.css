@@ -25,6 +25,12 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* The UA rule [hidden]{display:none} has the same specificity as a class
+   selector, and author styles beat UA styles -- so any component below that
+   sets `display` would override its own `hidden` attribute and stay visible.
+   This makes `hidden` authoritative everywhere. */
+[hidden] { display: none !important; }
+
 body {
   background: var(--paper);
   color: var(--ink);
