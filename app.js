@@ -298,7 +298,7 @@ function render() {
     }
 
     const foot = [];
-    if (!g.isOverUnder) foot.push(`Total ${g.total}`);
+    if (!g.isOverUnder) foot.push(`<span>Total ${g.total}</span>`);
     if (pick && savedPicks[g.id] !== pick) {
       foot.push('<span class="unsaved">Not saved yet</span>');
     } else if (pick) {
@@ -309,7 +309,7 @@ function render() {
       const o = gradePick(g, pick, savedLines[g.id]);
       foot.push(`<span class="outcome ${o}">${o.toUpperCase()}</span>`);
     } else if (!pick && !locked) {
-      foot.push('No pick yet');
+      foot.push('<span>No pick yet</span>');
     }
 
     html += `
@@ -368,7 +368,7 @@ function lockedNote(game, selection) {
   const show = (n) => (isTotal ? `${n}` : fmtLine(n));
   const label = isTotal ? 'Locked O/U' : 'Locked at';
 
-  if (current === stored) return `${label} ${show(stored)}`;
+  if (current === stored) return `<span class="locked-line">${label} ${show(stored)}</span>`;
   // Grading uses the stored number, so flag the gap rather than hide it.
   return `<span class="line-moved">${label} ${show(stored)} · now ${show(current)}</span>`;
 }

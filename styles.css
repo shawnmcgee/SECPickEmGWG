@@ -177,11 +177,19 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
   font-variant-numeric: tabular-nums; min-width: 54px; text-align: right;
 }
 .cfoot {
-  padding: 7px 13px 9px 15px; border-top: 1px dashed var(--rule);
+  padding: 8px 13px 10px 15px; border-top: 1px dashed var(--rule);
   font-size: 10.5px; letter-spacing: .11em; text-transform: uppercase;
   color: var(--dim); font-weight: 700;
-  display: flex; gap: 12px; flex-wrap: wrap;
+  display: flex; gap: 14px; flex-wrap: wrap; align-items: baseline;
 }
+/* Thin divider between footer items. Gap alone reads as a stray space run
+   once the labels are all uppercase. */
+.cfoot > * + *::before {
+  content: ''; display: inline-block; vertical-align: middle;
+  width: 1px; height: 9px; margin-right: 14px;
+  background: var(--rule);
+}
+.locked-line { color: var(--ink); }
 .outcome { font-weight: 700; letter-spacing: .11em; }
 .outcome.win  { color: var(--win); }
 .outcome.loss { color: var(--loss); }
