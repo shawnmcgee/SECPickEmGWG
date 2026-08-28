@@ -58,6 +58,16 @@
       </label>
 
       <div class="admin-group">
+        <h4>Who has picked</h4>
+        <p class="hint" id="statusHint">Counts only — this never shows what anyone picked.</p>
+        <div id="pickStatus" class="status-list"></div>
+        <div class="status-actions">
+          <button id="refreshStatusBtn">Refresh</button>
+          <button id="copyReminderBtn">Copy names to remind</button>
+        </div>
+      </div>
+
+      <div class="admin-group">
         <h4>Refresh this week's lines</h4>
         <p class="hint">Pulls current games and spreads from the odds provider.</p>
         <button id="loadApiBtn">Load live lines</button>

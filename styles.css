@@ -254,6 +254,37 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
 }
 .admin button.danger { background: var(--loss); }
 
+/* --- pick status -------------------------------------------------------- */
+.status-list { margin-top: 4px; }
+.status-row {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px;
+  align-items: center; padding: 9px 2px;
+  border-bottom: 1px solid var(--rule); font-size: 14.5px;
+}
+.status-row:last-child { border-bottom: none; }
+.status-count {
+  font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+.status-badge {
+  font-size: 9.5px; letter-spacing: .11em; text-transform: uppercase;
+  font-weight: 700; padding: 3px 7px; border-radius: 2px;
+  background: var(--dim); color: #fff; white-space: nowrap;
+}
+.status-badge.complete { background: var(--win); }
+.status-badge.partial  { background: var(--ou); }
+.status-badge.none     { background: var(--loss); }
+.status-note {
+  display: block; font-style: normal; font-size: 10.5px; color: var(--dim);
+  letter-spacing: .06em; text-transform: uppercase; margin-top: 2px;
+}
+.status-tally {
+  font-size: 12px; color: var(--dim); padding: 9px 0 2px;
+  letter-spacing: .04em; border-top: 1px solid var(--rule); margin-top: 4px;
+}
+.status-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+.status-actions button { flex: 1; min-width: 140px; }
+
 /* --- modal, toast, empty ------------------------------------------------ */
 .modal {
   position: fixed; inset: 0; background: rgba(22,22,26,.82);

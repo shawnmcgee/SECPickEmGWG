@@ -400,6 +400,64 @@ function populateScoreSelect() {
     weekGames.map((g) => `<option value="${g.id}">${g.away} at ${g.home}${g.result?.completed ? ' (final)' : ''}</option>`).join('');
 }
 
+/* --- pick status (commissioner) ----------------------------------------- */
+let reminderNames = [];
+
+async function loadPickStatus() {
+  const box = document.getElementById('pickStatus');
+  const hint = document.getElementById('statusHint');
+  if (!box) return;
+  box.innerHTML = '<p class="hint">Checking…</p>';
+
+  try {
+    const res = await fetch(`/api/status?week=${currentWeek}`, { cache: 'no-store' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+
+    reminderNames = data.summary.needsReminder;
+
+    if (!data.players.length) {
+      box.innerHTML = '<p class="hint">No players yet.</p>';
+      return;
+    }
+    if (data.totalGames === 0) {
+      box.innerHTML = `<p class="hint">No games loaded for week ${currentWeek} yet.</p>`;
+      return;
+    }
+
+    const label = { complete: 'Complete', partial: 'Partial', none: 'No picks' };
+    box.innerHTML =
+      data.players.map((p) => `
+        <div class="status-row">
+          <span>${p.name}${p.noPicksThisSeason ? '<em class="status-note">no picks this season</em>' : ''}</span>
+          <span class="status-count">${p.picked}/${data.totalGames}</span>
+          <span class="status-badge ${p.state}">${label[p.state]}</span>
+        </div>`).join('') +
+      `<div class="status-tally">
+        ${data.summary.complete} complete · ${data.summary.partial} partial ·
+        ${data.summary.none} none · ${data.openGames} of ${data.totalGames} games still open
+      </div>`;
+
+    hint.textContent = data.nextKickoff
+      ? `Next lock ${fmtKickoff(data.nextKickoff)}. Counts only — never shows picks.`
+      : 'All games for this week are locked.';
+  } catch (err) {
+    box.innerHTML = `<p class="hint">Could not load status: ${err.message}</p>`;
+  }
+}
+
+async function copyReminderNames() {
+  if (!reminderNames.length) return toast('Everyone is fully picked');
+  const text = reminderNames.join(', ');
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(`Copied ${reminderNames.length} name${reminderNames.length === 1 ? '' : 's'}`);
+  } catch {
+    // Clipboard needs HTTPS and a user gesture; fall back to showing the list.
+    toast(text);
+  }
+}
+
 /* --- week navigation ---------------------------------------------------- */
 async function goToWeek(week) {
   if (dirty && !confirm('You have unsaved picks. Leave this week anyway?')) return;
@@ -418,6 +476,7 @@ async function goToWeek(week) {
   updateDeadline();
   populateScoreSelect();
   renderStandings();
+  if (!document.getElementById('adminSection').hidden) loadPickStatus();
 }
 
 function updateDeadline() {
@@ -487,6 +546,7 @@ async function deleteUser() {
     toast(`Deleted ${userName}`);
     document.getElementById('userToDelete').value = '';
     renderStandings();
+    loadPickStatus();
   } catch (err) { toast(err.message, true); }
 }
 
@@ -516,7 +576,10 @@ function init() {
   document.getElementById('adminToggle').onclick = () => {
     const b = document.getElementById('adminSection');
     b.hidden = !b.hidden;
+    if (!b.hidden) loadPickStatus();
   };
+  document.getElementById('refreshStatusBtn').onclick = loadPickStatus;
+  document.getElementById('copyReminderBtn').onclick = copyReminderNames;
   document.getElementById('loadApiBtn').onclick = () => window.reloadWeek(true);
   document.getElementById('enterScoreBtn').onclick = enterScore;
   document.getElementById('deleteUserBtn').onclick = deleteUser;
