@@ -16,15 +16,69 @@ const WEEK_1_DATE = { y: 2026, m: 9, d: 3 };  // Thu Sept 3 — mirrors lib/seas
 const cacheKey = (week) => `pickem:${SEASON}:games:w${week}`;
 const USER_KEY = `pickem:user`;
 
+// Brand colors. SEC teams arrive here already shortened by the server's
+// TEAM_NAME_MAP; everyone else keeps the provider's full name ("North Carolina
+// Tar Heels"), so lookup matches on a leading school name, longest key first.
 const TEAM_COLORS = {
+  // SEC
   'Alabama': '#9E1B32', 'Arkansas': '#9D2235', 'Auburn': '#0C2340',
   'Florida': '#0021A5', 'Georgia': '#BA0C2F', 'Kentucky': '#0033A0',
   'LSU': '#461D7C', 'Ole Miss': '#14213D', 'Mississippi State': '#660000',
   'Missouri': '#F1B82D', 'Oklahoma': '#841617', 'South Carolina': '#73000A',
   'Tennessee': '#FF8200', 'Texas': '#BF5700', 'Texas A&M': '#500000',
   'Vanderbilt': '#866D4B',
+
+  // Week 0 (test week) opponents
+  'North Carolina State': '#CC0000', 'NC State': '#CC0000',
+  'North Carolina': '#7BAFD4',
+  'TCU': '#4D1979', 'Texas Christian': '#4D1979',
+  'USC': '#990000', 'Southern California': '#990000',
+  'San Jose State': '#0055A2', 'San Jose St': '#0055A2',
+  'Virginia': '#232D4B', 'Virginia Tech': '#630031',
+  'Memphis': '#003087', 'UNLV': '#CF0A2C',
 };
-const colorFor = (team) => TEAM_COLORS[team] || '#3d3d46';
+
+// Longest first so "North Carolina State" wins over "North Carolina",
+// and "Texas A&M" over "Texas".
+const COLOR_KEYS = Object.keys(TEAM_COLORS).sort((a, b) => b.length - a.length);
+
+const normalizeName = (s) =>
+  (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+
+function brandColor(team) {
+  const t = normalizeName(team);
+  if (TEAM_COLORS[t]) return TEAM_COLORS[t];
+  // Word-boundary prefix match so "Texas" doesn't swallow "Texas Tech ...".
+  const key = COLOR_KEYS.find((k) => t === k || t.startsWith(`${k} `));
+  return key ? TEAM_COLORS[key] : '#3d3d46';
+}
+
+function luminance(hex) {
+  const channel = (v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const [r, g, b] = [1, 3, 5].map((i) => channel(parseInt(hex.substr(i, 2), 16) / 255));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+const INK = '#16161a';
+const INK_LUM = luminance(INK);
+
+/**
+ * Pick black or white text for a background, by WCAG contrast ratio.
+ * Hardcoding white fails badly on the light brand colors: Missouri gold is
+ * 1.8:1 against white, Tennessee orange 2.5:1, Carolina blue 2.4:1 -- all far
+ * under the 4.5:1 minimum. Every team clears 4.5:1 once the text adapts.
+ */
+function readableOn(hex) {
+  const lum = luminance(hex);
+  const vsWhite = 1.05 / (lum + 0.05);
+  const vsInk = (lum + 0.05) / (INK_LUM + 0.05);
+  return vsWhite >= vsInk ? '#ffffff' : INK;
+}
+
+function colorFor(team) {
+  const bg = brandColor(team);
+  return { bg, fg: readableOn(bg) };
+}
 
 let currentUser = null;
 let currentWeek = 1;
@@ -201,7 +255,7 @@ function render() {
     const locked = g.locked || lockedIds.has(g.id);
     const final = g.result?.completed;
     const pick = userPicks[g.id];
-    const homeColor = colorFor(g.home);
+    const home = colorFor(g.home);
 
     const tags = [];
     if (g.isSecMatchup) tags.push('<span class="tag">SEC</span>');
@@ -221,18 +275,21 @@ function render() {
         </div>
         <div class="ourow">
           ${['over', 'under'].map((side) => `
-            <button class="ou" style="--c:${homeColor}" data-game="${g.id}" data-pick="${side}"
+            <button class="ou" style="--c:${home.bg};--fg:${home.fg}" data-game="${g.id}" data-pick="${side}"
               aria-pressed="${pick === side}" ${locked ? 'disabled' : ''}>
               <b>${side}</b><i>${g.total}</i>
             </button>`).join('')}
         </div>`;
     } else {
-      const row = (team, line) => `
-        <button class="row" style="--c:${colorFor(team)}" data-game="${g.id}" data-pick="${team}"
+      const row = (team, line) => {
+        const c = colorFor(team);
+        return `
+        <button class="row" style="--c:${c.bg};--fg:${c.fg}" data-game="${g.id}" data-pick="${team}"
           aria-pressed="${pick === team}" ${locked ? 'disabled' : ''}>
           <span class="team"><i class="mark"></i><span>${team}</span></span>
           <span class="num">${fmtLine(line)}</span>
         </button>`;
+      };
       body = row(g.away, -g.spread) + row(g.home, g.spread);
     }
 
@@ -246,7 +303,7 @@ function render() {
     }
 
     html += `
-      <article class="card ${locked ? 'locked' : ''}" style="--h:${homeColor}">
+      <article class="card ${locked ? 'locked' : ''}" style="--h:${home.bg}">
         <div class="chead">${tags.join('')}<span class="ctime">${headRight}</span></div>
         ${body}
         ${foot.length ? `<div class="cfoot">${foot.join('')}</div>` : ''}
