@@ -141,6 +141,8 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
 .tag.lock  { background: var(--dim); }
 .ctime { margin-left: auto; font-weight: 400; letter-spacing: .05em; }
 
+.row, .ou { -webkit-tap-highlight-color: transparent; }
+
 .row {
   display: grid; grid-template-columns: 1fr auto; align-items: center;
   gap: 12px; padding: 13px 13px 13px 15px; cursor: pointer;
@@ -148,7 +150,15 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
   background: none; border: none; font: inherit; color: inherit; text-align: left;
 }
 .row + .row { border-top: 1px solid var(--rule); }
-.row:hover:not([disabled]) { background: #f7f5f1; }
+/* Hover must never outrank the selected state. `.row:hover:not([disabled])`
+   counts three class-level selectors against `.row[aria-pressed="true"]`'s two,
+   so it wins on specificity no matter where it sits in the file -- which left a
+   tapped row painted hover-grey with white text on it. Touch devices also keep
+   a stale :hover after a tap, so the pick stayed grey until the next re-render.
+   Gate hover to real pointers and exclude the pressed state. */
+@media (hover: hover) and (pointer: fine) {
+  .row:hover:not([disabled]):not([aria-pressed="true"]) { background: #f7f5f1; }
+}
 .row[aria-pressed="true"] { background: var(--c, var(--ink)); color: var(--fg, #fff); }
 .row[disabled] { cursor: default; }
 .team {
@@ -184,7 +194,9 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
   text-align: center; cursor: pointer; background: #fff;
   font: inherit; color: inherit; transition: .14s;
 }
-.ou:hover:not([disabled]) { border-color: #b9b4a9; }
+@media (hover: hover) and (pointer: fine) {
+  .ou:hover:not([disabled]):not([aria-pressed="true"]) { border-color: #b9b4a9; }
+}
 .ou[aria-pressed="true"] { background: var(--c, var(--ou)); border-color: var(--c, var(--ou)); color: var(--fg, #fff); }
 .ou[disabled] { cursor: default; }
 .ou b { display: block; font-family: var(--display); font-size: 15px; font-weight: 400; letter-spacing: .09em; text-transform: uppercase; }
