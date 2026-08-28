@@ -1,217 +1,166 @@
 // /api/picks.js
 import { sql } from '../lib/db';
+import { SEASON, clampWeek, isTestWeek } from '../lib/season';
 
-async function ensureGameExists(gameData) {
-  try {
-    // Insert game if it doesn't exist
-    await sql`
-      INSERT INTO games (id, week, home_team, away_team, spread, total, game_date, game_time, 
-                        is_over_under, is_sec_matchup, original_home_team, original_away_team)
-      VALUES (${gameData.id}, ${gameData.week}, ${gameData.home}, ${gameData.away}, 
-              ${gameData.spread}, ${gameData.total}, ${gameData.date}, ${gameData.time},
-              ${gameData.isOverUnder || false}, ${gameData.isSecMatchup || false}, 
-              ${gameData.originalHomeTeam || gameData.home}, ${gameData.originalAwayTeam || gameData.away})
-      ON CONFLICT (id) DO UPDATE SET
-        spread = EXCLUDED.spread,
-        total = EXCLUDED.total,
-        game_date = EXCLUDED.game_date,
-        game_time = EXCLUDED.game_time
-    `;
-  } catch (error) {
-    console.error('Error ensuring game exists:', error);
-    throw error;
-  }
+function readBody(req) {
+  if (!req.body) return {};
+  return typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 }
 
 export default async function handler(req, res) {
-  // Log incoming request for debugging
-  console.log('Picks API called:', req.method);
-  
   try {
+    /* ------------------------------------------------------------------ */
     if (req.method === 'POST') {
-      // Parse the body
-      let body;
-      if (typeof req.body === 'string') {
-        body = JSON.parse(req.body);
-      } else {
-        body = req.body;
-      }
-      
-      const { userName, week, picks, games } = body;
-      
-      console.log('Processing picks for:', { userName, week, picksCount: picks?.length });
-      
-      if (!userName || !Array.isArray(picks) || !week) {
+      const { userName, week: rawWeek, picks } = readBody(req);
+
+      if (!userName || !rawWeek || !Array.isArray(picks) || picks.length === 0) {
         return res.status(400).json({ error: 'userName, week, and picks required' });
       }
+      const week = clampWeek(rawWeek);
+      const name = String(userName).trim().slice(0, 40);
+      if (!name) return res.status(400).json({ error: 'userName required' });
 
-      // Upsert user
-      let user_id;
-      try {
-        const userResult = await sql`
-          INSERT INTO users (name)
-          VALUES (${userName})
-          ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
-          RETURNING id
-        `;
-        user_id = userResult[0].id;
-        console.log(`User ID: ${user_id}`);
-      } catch (error) {
-        console.error('Error creating/finding user:', error);
-        return res.status(500).json({ 
-          error: 'Failed to create/find user', 
-          detail: error.message 
-        });
+      // The client no longer supplies game data. Lines come from the games
+      // table, which only /api/games writes. Previously the client posted its
+      // own `games` array, which meant any player could rewrite the spread of
+      // any game for everyone -- and a stale phone cache could silently
+      // overwrite current lines just by submitting picks.
+      const gameIds = picks.map((p) => p.gameId).filter(Boolean);
+      if (gameIds.length === 0) {
+        return res.status(400).json({ error: 'No valid gameId values in picks' });
       }
 
-      // Ensure games exist in the database if games data provided
-      if (games && Array.isArray(games)) {
-        console.log(`Ensuring ${games.length} games exist in database`);
-        for (const game of games) {
-          try {
-            await ensureGameExists({
-              ...game,
-              week: parseInt(week)
-            });
-          } catch (error) {
-            console.error(`Failed to ensure game ${game.id} exists:`, error);
-            // Continue with other games even if one fails
-          }
-        }
-      }
+      const games = await sql`
+        SELECT id, home_team, away_team, spread, total, is_over_under, kickoff_at,
+               (kickoff_at IS NOT NULL AND kickoff_at <= NOW()) AS locked
+        FROM games
+        WHERE id = ANY(${gameIds}) AND season = ${SEASON} AND week = ${week}
+      `;
+      const gameById = new Map(games.map((g) => [g.id, g]));
 
-      // Insert/update picks
-      let successCount = 0;
+      const [user] = await sql`
+        INSERT INTO users (name) VALUES (${name})
+        ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+        RETURNING id
+      `;
+
+      const saved = [];
+      const rejected = [];
+
       for (const pick of picks) {
-        try {
-          const { gameId, selection } = pick;
-          
-          // Determine pick type and line based on selection
-          let pickType, line;
-          
-          if (selection === 'over' || selection === 'under') {
-            pickType = 'total';
-            // Get the total from the games data
-            if (games) {
-              const game = games.find(g => g.id === gameId);
-              line = game ? game.total : 50;
-            } else {
-              line = 50;
-            }
-          } else {
-            pickType = 'spread';
-            // Get the spread from the games data
-            if (games) {
-              const game = games.find(g => g.id === gameId);
-              if (game) {
-                line = selection === game.home ? game.spread : -game.spread;
-              } else {
-                line = 0;
-              }
-            } else {
-              line = 0;
-            }
-          }
+        const game = gameById.get(pick.gameId);
+        if (!game) {
+          rejected.push({ gameId: pick.gameId, reason: 'unknown game for this week' });
+          continue;
+        }
+        // Server-side deadline. Without this, picks stayed editable after the
+        // final whistle.
+        if (game.locked) {
+          rejected.push({ gameId: pick.gameId, reason: 'kickoff has passed' });
+          continue;
+        }
 
+        const selection = String(pick.selection);
+        let pickType;
+        let line;
+
+        if (selection === 'over' || selection === 'under') {
+          pickType = 'total';
+          line = Number(game.total);
+        } else if (selection === game.home_team) {
+          if (game.is_over_under) {
+            rejected.push({ gameId: pick.gameId, reason: 'this game is over/under only' });
+            continue;
+          }
+          pickType = 'spread';
+          line = Number(game.spread);
+        } else if (selection === game.away_team) {
+          if (game.is_over_under) {
+            rejected.push({ gameId: pick.gameId, reason: 'this game is over/under only' });
+            continue;
+          }
+          pickType = 'spread';
+          line = -Number(game.spread);
+        } else {
+          rejected.push({ gameId: pick.gameId, reason: 'selection does not match either team' });
+          continue;
+        }
+
+        try {
           await sql`
             INSERT INTO picks (user_id, game_id, pick_type, selection, line)
-            VALUES (${user_id}, ${gameId}, ${pickType}, ${selection}, ${line})
-            ON CONFLICT (user_id, game_id)
-            DO UPDATE SET 
+            VALUES (${user.id}, ${game.id}, ${pickType}, ${selection}, ${line})
+            ON CONFLICT (user_id, game_id) DO UPDATE SET
               pick_type = EXCLUDED.pick_type,
               selection = EXCLUDED.selection,
-              line = EXCLUDED.line
+              line      = EXCLUDED.line
           `;
-          successCount++;
-        } catch (error) {
-          console.error(`Failed to save pick for game ${pick.gameId}:`, error);
+          saved.push(game.id);
+        } catch (e) {
+          console.error(`Failed to save pick ${game.id}:`, e.message);
+          rejected.push({ gameId: pick.gameId, reason: 'database error' });
         }
       }
 
-      console.log(`Successfully saved ${successCount} of ${picks.length} picks for user ${userName}`);
-      return res.status(200).json({ 
-        success: true, 
-        message: `Saved ${successCount} of ${picks.length} picks` 
+      return res.status(200).json({
+        success: true,
+        saved: saved.length,
+        rejected,
+        testWeek: isTestWeek(week),
+        message: `Saved ${saved.length} of ${picks.length} picks`,
       });
     }
 
+    /* ------------------------------------------------------------------ */
     if (req.method === 'GET') {
-      const { userName, week } = Object.fromEntries(new URL(req.url, 'http://x').searchParams);
-      
-      if (!userName || !week) {
+      const url = new URL(req.url, 'http://x');
+      const userName = url.searchParams.get('userName');
+      const weekParam = url.searchParams.get('week');
+      if (!userName || !weekParam) {
         return res.status(400).json({ error: 'userName and week required' });
       }
+      const week = clampWeek(weekParam);
 
-      console.log(`Retrieving picks for user: ${userName}, week: ${week}`);
-
-      const picks = await sql`
-        SELECT p.game_id, p.pick_type, p.selection, p.line
+      const rows = await sql`
+        SELECT p.game_id, p.pick_type, p.selection, p.line,
+               (g.kickoff_at IS NOT NULL AND g.kickoff_at <= NOW()) AS locked
         FROM picks p
         JOIN users u ON u.id = p.user_id
         JOIN games g ON g.id = p.game_id
-        WHERE u.name = ${userName} AND g.week = ${Number(week)}
+        WHERE u.name = ${userName} AND g.week = ${week} AND g.season = ${SEASON}
       `;
 
-      console.log(`Found ${picks.length} picks for user ${userName} in week ${week}`);
-      
-      // Convert to the format expected by frontend
       const picksMap = {};
-      picks.forEach(pick => {
-        picksMap[pick.game_id] = pick.selection;
+      const locked = {};
+      rows.forEach((r) => {
+        picksMap[r.game_id] = r.selection;
+        locked[r.game_id] = r.locked;
       });
 
-      return res.status(200).json({ picks: picksMap });
+      return res.status(200).json({ picks: picksMap, locked });
     }
 
+    /* ------------------------------------------------------------------ */
     if (req.method === 'DELETE') {
-      let body;
-      if (typeof req.body === 'string') {
-        body = JSON.parse(req.body);
-      } else {
-        body = req.body;
-      }
-      
-      const { userName, adminPassword } = body;
-      
-      // Check admin password
-      if (adminPassword !== process.env.ADMIN_PASSWORD) {
+      const { userName, adminPassword } = readBody(req);
+      if (!process.env.ADMIN_PASSWORD || adminPassword !== process.env.ADMIN_PASSWORD) {
         return res.status(401).json({ error: 'Invalid admin password' });
       }
-      
-      if (!userName) {
-        return res.status(400).json({ error: 'userName required' });
-      }
+      if (!userName) return res.status(400).json({ error: 'userName required' });
 
-      console.log(`Deleting user: ${userName}`);
+      const [user] = await sql`SELECT id FROM users WHERE name = ${userName}`;
+      if (!user) return res.status(404).json({ error: 'User not found' });
 
-      // Get user ID first
-      const userResult = await sql`SELECT id FROM users WHERE name = ${userName}`;
-      
-      if (!userResult || userResult.length === 0) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-
-      const user = userResult[0];
-
-      // Delete picks first (foreign key constraint)
       await sql`DELETE FROM picks WHERE user_id = ${user.id}`;
-      
-      // Delete user
       await sql`DELETE FROM users WHERE id = ${user.id}`;
-
-      console.log(`Successfully deleted user ${userName} and all their picks`);
       return res.status(200).json({ success: true, message: `Deleted user ${userName}` });
     }
 
     res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
     return res.status(405).json({ error: 'Method not allowed' });
-    
   } catch (error) {
     console.error('Picks API error:', error);
-    return res.status(500).json({ 
-      error: 'Server error', 
-      detail: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    // Stack traces and driver messages no longer go to the client.
+    return res.status(500).json({ error: 'Server error' });
   }
 }
