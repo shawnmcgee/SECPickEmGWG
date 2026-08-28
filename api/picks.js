@@ -138,12 +138,17 @@ export default async function handler(req, res) {
 
       const picksMap = {};
       const locked = {};
+      // The line each pick was saved at. Grading uses picks.line, not the
+      // current games.spread, so the client needs this to show players the
+      // number they will actually be scored against.
+      const lines = {};
       rows.forEach((r) => {
         picksMap[r.game_id] = r.selection;
         locked[r.game_id] = r.locked;
+        lines[r.game_id] = r.line === null ? null : Number(r.line);
       });
 
-      return res.status(200).json({ picks: picksMap, locked });
+      return res.status(200).json({ picks: picksMap, locked, lines });
     }
 
     /* ------------------------------------------------------------------ */
