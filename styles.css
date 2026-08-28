@@ -186,6 +186,8 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
 .outcome.win  { color: var(--win); }
 .outcome.loss { color: var(--loss); }
 .outcome.push { color: var(--push); }
+.unsaved    { color: var(--ou); font-weight: 700; }
+.line-moved { color: var(--ou); font-weight: 700; }
 
 /* over/under tiles */
 .ourow { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; padding: 12px 13px 13px 15px; }

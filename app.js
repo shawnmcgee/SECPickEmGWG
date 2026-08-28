@@ -83,7 +83,9 @@ function colorFor(team) {
 let currentUser = null;
 let currentWeek = 1;
 let weekGames = [];
-let userPicks = {};      // gameId -> selection
+let userPicks = {};      // gameId -> selection (may include unsaved edits)
+let savedPicks = {};     // gameId -> selection, as last confirmed by the server
+let savedLines = {};     // gameId -> the line the pick was saved at
 let lockedIds = new Set();
 let dirty = false;
 
@@ -185,7 +187,7 @@ async function loadGames(week, { live = false } = {}) {
 // Picks always come from the server, never from local state, so a player sees
 // the same selections on their phone and their laptop.
 async function loadPicks(week) {
-  userPicks = {};
+  userPicks = {}; savedPicks = {}; savedLines = {};
   if (!currentUser) return;
   try {
     const res = await fetch(
@@ -195,6 +197,8 @@ async function loadPicks(week) {
     if (!res.ok) return;
     const data = await res.json();
     userPicks = data.picks || {};
+    savedPicks = { ...userPicks };
+    savedLines = data.lines || {};
     Object.entries(data.locked || {}).forEach(([id, l]) => { if (l) lockedIds.add(id); });
   } catch (err) {
     console.error('Could not load picks:', err);
@@ -295,8 +299,14 @@ function render() {
 
     const foot = [];
     if (!g.isOverUnder) foot.push(`Total ${g.total}`);
+    if (pick && savedPicks[g.id] !== pick) {
+      foot.push('<span class="unsaved">Not saved yet</span>');
+    } else if (pick) {
+      const note = lockedNote(g, pick);
+      if (note) foot.push(note);
+    }
     if (final && pick) {
-      const o = gradePick(g, pick);
+      const o = gradePick(g, pick, savedLines[g.id]);
       foot.push(`<span class="outcome ${o}">${o.toUpperCase()}</span>`);
     } else if (!pick && !locked) {
       foot.push('No pick yet');
@@ -320,21 +330,47 @@ function render() {
   updateSummary();
 }
 
-// Mirrors the server's grading so the card can show a result immediately.
-function gradePick(game, selection) {
+/**
+ * Mirrors the server's grading. `lockedLine` is the value stored in picks.line
+ * at submit time -- the number standings actually score against. Falls back to
+ * the game's current line only for picks that were never saved.
+ */
+function gradePick(game, selection, lockedLine) {
   if (!game.result?.completed) return 'pending';
   const { homeScore, awayScore } = game.result;
-  const margin = homeScore - awayScore;
+  const stored = Number.isFinite(Number(lockedLine)) && lockedLine !== null
+    ? Number(lockedLine) : null;
+
   if (selection === 'over' || selection === 'under') {
+    const total = stored ?? game.total;
     const t = homeScore + awayScore;
-    if (t === game.total) return 'push';
-    return (selection === 'over' ? t > game.total : t < game.total) ? 'win' : 'loss';
+    if (t === total) return 'push';
+    return (selection === 'over' ? t > total : t < total) ? 'win' : 'loss';
   }
-  const line = selection === game.home ? game.spread : -game.spread;
+
+  const margin = homeScore - awayScore;
+  const line = stored ?? (selection === game.home ? game.spread : -game.spread);
   if (selection === game.home) {
     return margin > -line ? 'win' : margin === -line ? 'push' : 'loss';
   }
   return margin < line ? 'win' : margin === line ? 'push' : 'loss';
+}
+
+/** What line is this pick actually locked at, and has the market moved since? */
+function lockedNote(game, selection) {
+  const raw = savedLines[game.id];
+  if (raw === undefined || raw === null || !Number.isFinite(Number(raw))) return '';
+  const stored = Number(raw);
+  const isTotal = selection === 'over' || selection === 'under';
+  const current = isTotal
+    ? Number(game.total)
+    : Number(selection === game.home ? game.spread : -game.spread);
+  const show = (n) => (isTotal ? `${n}` : fmtLine(n));
+  const label = isTotal ? 'Locked O/U' : 'Locked at';
+
+  if (current === stored) return `${label} ${show(stored)}`;
+  // Grading uses the stored number, so flag the gap rather than hide it.
+  return `<span class="line-moved">${label} ${show(stored)} · now ${show(current)}</span>`;
 }
 
 function onPick(e) {
@@ -363,7 +399,7 @@ function updateSummary() {
   weekGames.forEach((g) => {
     const sel = userPicks[g.id];
     if (!sel || !g.result?.completed) return;
-    const o = gradePick(g, sel);
+    const o = gradePick(g, sel, savedLines[g.id]);
     if (o === 'win') w++; else if (o === 'loss') l++; else if (o === 'push') p++;
   });
   rec.textContent = w + l + p > 0 ? `${w}-${l}${p ? `-${p}` : ''}` : '';
