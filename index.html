@@ -74,6 +74,14 @@
       </div>
 
       <div class="admin-group">
+        <h4>Fetch final scores</h4>
+        <p class="hint" id="syncHint">Pulls completed games from the provider. Nothing is saved until you confirm.</p>
+        <button id="fetchScoresBtn">Fetch scores</button>
+        <div id="scoreProposals" class="proposals"></div>
+        <button id="applyScoresBtn" class="apply-scores" hidden>Confirm and save</button>
+      </div>
+
+      <div class="admin-group">
         <h4>Enter a final score</h4>
         <select id="gameIdForScore"><option value="">Select a game…</option></select>
         <div class="score-row">

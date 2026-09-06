@@ -494,6 +494,107 @@ async function copyReminderNames() {
   }
 }
 
+/* --- score sync (fetch, review, confirm) -------------------------------- */
+const SYNC_LABEL = {
+  ready: 'New final', differs: 'Differs from saved', unchanged: 'Already saved',
+  in_progress: 'In progress', not_started: 'Not started',
+  no_scores: 'No scores yet', not_found: 'Not in feed',
+};
+
+async function fetchScores() {
+  const pw = document.getElementById('adminPassword').value;
+  if (!pw) return toast('Admin password required', true);
+  const box = document.getElementById('scoreProposals');
+  const apply = document.getElementById('applyScoresBtn');
+  box.innerHTML = '<p class="hint">Fetching…</p>';
+  apply.hidden = true;
+
+  try {
+    const res = await fetch('/api/scores-sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminPassword: pw, week: currentWeek, mode: 'preview' }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Fetch failed');
+
+    if (!data.proposals?.length) {
+      box.innerHTML = `<p class="hint">${data.note || 'Nothing returned for this week.'}</p>`;
+      return;
+    }
+
+    // Only games with a usable final are editable and selected by default.
+    box.innerHTML = data.proposals.map((p) => {
+      const actionable = p.status === 'ready' || p.status === 'differs';
+      const prior = p.existing ? ` (saved ${p.existing.awayScore}-${p.existing.homeScore})` : '';
+      return `
+        <div class="proposal ${actionable ? '' : 'inert'}">
+          <label class="proposal-pick">
+            <input type="checkbox" data-sync="${p.gameId}" ${actionable ? 'checked' : 'disabled'}>
+            <span class="proposal-teams">${p.away} at ${p.home}</span>
+          </label>
+          <span class="proposal-scores">
+            ${actionable
+              ? `<input type="number" inputmode="numeric" min="0" class="ps" data-away="${p.gameId}" value="${p.awayScore}">
+                 <em>–</em>
+                 <input type="number" inputmode="numeric" min="0" class="ps" data-home="${p.gameId}" value="${p.homeScore}">`
+              : '<span class="proposal-dash">—</span>'}
+          </span>
+          <span class="proposal-status ${p.status}">${SYNC_LABEL[p.status] || p.status}${prior}</span>
+        </div>`;
+    }).join('');
+
+    const s = data.summary;
+    const warn = data.beyondWindow
+      ? ' Some games are older than the provider\'s 3-day window and can only be entered by hand.'
+      : '';
+    document.getElementById('syncHint').textContent =
+      `${s.ready} new, ${s.differs} differ, ${s.unchanged} already saved, ${s.pending} not final yet.` +
+      (data.quotaRemaining ? ` Quota left: ${data.quotaRemaining}.` : '') + warn;
+
+    apply.hidden = s.ready + s.differs === 0;
+  } catch (err) {
+    box.innerHTML = `<p class="hint">${err.message}</p>`;
+  }
+}
+
+async function applyScores() {
+  const pw = document.getElementById('adminPassword').value;
+  const boxes = [...document.querySelectorAll('[data-sync]:checked')];
+  if (!boxes.length) return toast('Nothing selected');
+
+  const scores = boxes.map((b) => {
+    const id = b.dataset.sync;
+    const esc = CSS.escape(id);
+    return {
+      gameId: id,
+      awayScore: Number(document.querySelector(`[data-away="${esc}"]`).value),
+      homeScore: Number(document.querySelector(`[data-home="${esc}"]`).value),
+    };
+  });
+
+  try {
+    const res = await fetch('/api/scores-sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      // The server writes exactly what is confirmed here, not what it fetched,
+      // so any edit made in the review list is what lands.
+      body: JSON.stringify({ adminPassword: pw, week: currentWeek, mode: 'apply', scores }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Save failed');
+
+    toast(`Saved ${data.applied} score${data.applied === 1 ? '' : 's'}` +
+      (data.skipped?.length ? `, ${data.skipped.length} skipped` : ''));
+    document.getElementById('scoreProposals').innerHTML = '';
+    document.getElementById('applyScoresBtn').hidden = true;
+
+    await loadGames(currentWeek);
+    await loadPicks(currentWeek);
+    render(); renderStandings(); populateScoreSelect(); loadPickStatus();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
 /* --- week navigation ---------------------------------------------------- */
 async function goToWeek(week) {
   if (dirty && !confirm('You have unsaved picks. Leave this week anyway?')) return;
@@ -510,6 +611,8 @@ async function goToWeek(week) {
   await loadPicks(currentWeek);
   render();
   updateDeadline();
+  const proposals = document.getElementById('scoreProposals');
+  if (proposals) { proposals.innerHTML = ''; document.getElementById('applyScoresBtn').hidden = true; }
   populateScoreSelect();
   renderStandings();
   if (!document.getElementById('adminSection').hidden) loadPickStatus();
@@ -618,6 +721,8 @@ function init() {
   document.getElementById('copyReminderBtn').onclick = copyReminderNames;
   document.getElementById('loadApiBtn').onclick = () => window.reloadWeek(true);
   document.getElementById('enterScoreBtn').onclick = enterScore;
+  document.getElementById('fetchScoresBtn').onclick = fetchScores;
+  document.getElementById('applyScoresBtn').onclick = applyScores;
   document.getElementById('deleteUserBtn').onclick = deleteUser;
 
   window.addEventListener('beforeunload', (e) => {

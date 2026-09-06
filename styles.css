@@ -307,6 +307,32 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
 .status-actions { display: flex; gap: 9px; flex-wrap: wrap; }
 .status-actions button { flex: 1; min-width: 140px; }
 
+/* --- score proposals ---------------------------------------------------- */
+.proposals:not(:empty) { margin-top: 12px; border-top: 1px solid var(--rule); }
+.proposal {
+  display: grid; grid-template-columns: 1fr auto; gap: 6px 10px;
+  padding: 10px 2px; border-bottom: 1px solid var(--rule); align-items: center;
+}
+.proposal.inert { opacity: .5; }
+.proposal-pick { display: flex; align-items: center; gap: 8px; margin: 0;
+  font-size: 14px; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.proposal-pick input[type="checkbox"] { width: auto; margin: 0; flex: none; }
+.proposal-teams { font-weight: 700; }
+.proposal-scores { display: flex; align-items: center; gap: 6px; }
+.proposal-scores em { font-style: normal; color: var(--dim); }
+.proposal input.ps {
+  width: 56px; margin: 0; padding: 6px 8px; text-align: center;
+  font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums;
+}
+.proposal-dash { color: var(--dim); }
+.proposal-status {
+  grid-column: 1 / -1; font-size: 10px; letter-spacing: .11em;
+  text-transform: uppercase; font-weight: 700; color: var(--dim);
+}
+.proposal-status.ready   { color: var(--win); }
+.proposal-status.differs { color: var(--ou); }
+.apply-scores { width: 100%; }
+
 /* --- modal, toast, empty ------------------------------------------------ */
 .modal {
   position: fixed; inset: 0; background: rgba(22,22,26,.82);
