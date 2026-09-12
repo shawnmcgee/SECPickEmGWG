@@ -59,21 +59,12 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
   display: block; font-family: var(--body); font-size: 10.5px;
   letter-spacing: .24em; font-weight: 400; opacity: .62; margin-bottom: 3px;
 }
-/* The auto margin moved here when the chip gained a sibling -- leaving it on
-   .user-chip would push the bell and the chip apart instead of the pair right. */
-.top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .user-chip {
-  background: none; border: 1px solid rgba(255,255,255,.28);
+  margin-left: auto; background: none; border: 1px solid rgba(255,255,255,.28);
   color: var(--paper); font: inherit; font-size: 12px; letter-spacing: .04em;
   padding: 5px 11px; border-radius: 999px; cursor: pointer;
 }
 .user-chip:hover { border-color: rgba(255,255,255,.6); }
-.icon-btn {
-  background: none; border: 1px solid rgba(255,255,255,.28); color: var(--paper);
-  font-size: 13px; line-height: 1; width: 30px; height: 27px;
-  border-radius: 999px; cursor: pointer;
-}
-.icon-btn:hover { border-color: rgba(255,255,255,.6); }
 
 /* --- week bar ----------------------------------------------------------- */
 .weekbar {
@@ -311,12 +302,33 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
 }
 /* Inline, unlike .status-note -- it belongs beside the name, not under it. */
 .status-bell { font-size: 11px; margin-left: 5px; }
+
 .status-tally {
   font-size: 12px; color: var(--dim); padding: 9px 0 2px;
   letter-spacing: .04em; border-top: 1px solid var(--rule); margin-top: 4px;
 }
 .status-actions { display: flex; gap: 9px; flex-wrap: wrap; }
 .status-actions button { flex: 1; min-width: 140px; }
+
+/* --- discord reminders (commissioner) ----------------------------------- */
+.notify-list:not(:empty) { margin-bottom: 9px; }
+.notify-row {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 7px 0; border-bottom: 1px solid var(--rule);
+}
+.notify-name { flex: 1 1 100px; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.notify-id {
+  flex: 2 1 170px; min-width: 0; padding: 7px 9px; font: inherit;
+  font-family: var(--mono); font-size: 13px;
+  border: 1px solid var(--rule); border-radius: 3px; background: var(--paper);
+}
+.notify-switch {
+  display: flex; align-items: center; gap: 6px; flex: none; cursor: pointer;
+  font-size: 12px; color: var(--dim); letter-spacing: .06em; text-transform: uppercase;
+}
+.notify-switch input[type="checkbox"] {
+  width: 18px; height: 18px; margin: 0; accent-color: var(--ink);
+}
 
 /* --- score proposals ---------------------------------------------------- */
 .proposals:not(:empty) { margin-top: 12px; border-top: 1px solid var(--rule); }
@@ -359,19 +371,6 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
   width: 100%; padding: 13px; background: var(--ink); color: var(--paper);
   border: none; border-radius: 3px; cursor: pointer;
   font-family: var(--display); font-size: 15px; letter-spacing: .11em; text-transform: uppercase;
-}
-.modal-card label { display: block; font-size: 13px; color: var(--dim); letter-spacing: .04em; }
-.modal-actions { display: flex; gap: 9px; margin-top: 14px; }
-.modal-card .ghost { background: none; color: var(--ink); border: 1px solid var(--rule); }
-
-/* The blanket `.modal-card input` rule is sized for text fields -- a checkbox
-   inheriting width:100% becomes a full-width bar. */
-.switch-row {
-  display: flex; align-items: center; gap: 10px;
-  font-size: 15px; color: var(--ink); margin-top: 6px; cursor: pointer;
-}
-.switch-row input[type="checkbox"] {
-  width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--ink);
 }
 
 .toast {

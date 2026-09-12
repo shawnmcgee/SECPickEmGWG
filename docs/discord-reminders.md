@@ -50,6 +50,7 @@ Treat that URL as a secret — anyone holding it can post to the channel.
 | `CRON_SECRET` | yes | Any long random string. The endpoint refuses to run without it rather than falling back to open. |
 | `PICKEM_SITE_URL` | no | Included as a link in the message, e.g. `https://pickem.example.com`. |
 | `REMINDER_LEAD_MINUTES` | no | Defaults to `75`. |
+| `ADMIN_PASSWORD` | yes | Already used by the other commissioner tools. Reminder settings are gated on it too. |
 
 ### 4. GitHub repository secrets
 
@@ -58,13 +59,26 @@ Treat that URL as a secret — anyone holding it can post to the channel.
 - `PICKEM_SITE_URL` — the deployed site's base URL.
 - `CRON_SECRET` — must match the Vercel value exactly.
 
-### 5. Players opt in
+### 5. Opt players in
 
-Each player signs in, taps the bell in the header, pastes their Discord user ID
-and turns reminders on. To find the ID: Discord **Settings → Advanced →
-Developer Mode**, then right-click your name and **Copy User ID**.
+Reminders are managed by the commissioner, not by players themselves. Open
+**Commissioner tools**, enter the admin password, then under **Discord
+reminders** press *Load reminder settings*. Paste each player's Discord user ID,
+tick **Ping** for the ones who want reminders, and press *Save reminders*.
+
+To find a player's ID: in Discord, **Settings → Advanced → Developer Mode**,
+then right-click their name and **Copy User ID**.
 
 Reminders default to off, and cannot be turned on without an ID.
+
+#### Why commissioner-gated
+
+Players are identified app-wide by the name they type, which is fine for picks
+— the worst case is someone spoiling their own week. A Discord ID points at a
+real person's account, though, so a self-service field would let anyone aim a
+recurring ping at a stranger. `ADMIN_PASSWORD` gates both reading and writing
+these settings, and `/api/notify-settings` is POST-only so the password stays
+out of URLs, browser history and access logs.
 
 ## Testing without spamming the channel
 
@@ -80,12 +94,8 @@ The workflow also has a **Run workflow** button that defaults to a dry run.
 
 ## Notes
 
-- The commissioner panel shows a 🔔 next to players who have reminders on.
+- The **Who has picked** list shows a 🔔 next to players who have reminders on.
+- `/api/status` reports only whether reminders are on, never the Discord ID.
 - The test week (week 0) is excluded — it is scratch data.
 - If a Discord send fails, the dedupe rows are not written, so the next sweep
   retries. A duplicate ping beats a silent miss an hour before kickoff.
-- Reminder settings follow the same trust model as the rest of the app: players
-  are identified by the name they type, so anyone who can save picks as a name
-  can also change that name's reminder settings. To lock this down, gate the
-  `POST` in `api/notify-settings.js` on `ADMIN_PASSWORD`, the way
-  `api/picks.js` does for `DELETE`.
