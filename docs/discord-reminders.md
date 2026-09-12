@@ -5,21 +5,66 @@ if they still have picks open for it.
 
 ## How it works
 
-A scheduled GitHub Actions workflow POSTs to `/api/notify-reminders` every ten
-minutes. The endpoint looks for games kicking off inside the lead window, finds
+A scheduler POSTs to `/api/notify-reminders` every few minutes (a GitHub Actions
+workflow ships as the default — see the caveat below). The endpoint looks for games kicking off inside the lead window, finds
 opted-in players with no saved pick for them, and posts one grouped message per
 player to a Discord channel webhook.
 
 Every `(player, game)` that has been pinged is recorded in
-`pick_reminders_sent`, so a ten-minute sweep against a seventy-five minute
-window sends exactly once.
+`pick_reminders_sent`, so however often the sweep runs, and however wide its
+window, each player hears about each game exactly once.
 
-### Why the window is 75 minutes, not 60
+### The scheduler is the weak link
 
-GitHub Actions cron is best-effort and routinely fires 5–15 minutes late. A
-window pinned at exactly 60 would let games slip past unpinged. The dedupe
-table is what makes the wider window safe — in practice a player hears about it
-60–75 minutes before kickoff. Tune it with `REMINDER_LEAD_MINUTES` if you like.
+**GitHub Actions does not merely delay high-frequency cron — it silently drops
+most firings.** Observed on this repo: a ten-minute schedule produced three runs
+in eight hours, with gaps of 250 and 215 minutes. The run numbers were
+consecutive, confirming the missing runs were never created rather than failing.
+
+That is fatal for a fixed window. A game locking in a 250-minute gap is never
+pinged at all: once `kickoff_at` passes, the sweep drops it for good.
+
+**For reliable timing, point a real scheduler at the same endpoint** — the
+workflow is a backstop, not the plan:
+
+| Option | Cost | Granularity |
+| --- | --- | --- |
+| [cron-job.org](https://cron-job.org) | free | 1 minute, supports custom headers |
+| [Upstash QStash](https://upstash.com/docs/qstash) | free tier | 1 minute |
+| Vercel Cron | Pro plan | 1 minute (Hobby is once a day) |
+
+Any of them needs one POST to `https://your-site/api/notify-reminders` with the
+header `Authorization: Bearer <CRON_SECRET>`. Every ten minutes is plenty. Once
+a real scheduler is running, disable this repo's workflow (Actions → Pick
+reminders → ⋯ → Disable workflow) so the two do not overlap — though they are
+safe together, since the dedupe table means whichever sweep gets there first
+sends and the other finds nothing.
+
+### The window adapts to whatever cadence it actually gets
+
+Because the cadence is not ours to choose, the endpoint measures it. Each real
+sweep records itself in `reminder_sweeps`; the next one reads the gap and widens
+its window to 1.5× of it, capped at `REMINDER_MAX_LEAD_MINUTES` (default 360).
+
+| Gap since last sweep | Window used |
+| --- | --- |
+| first run ever | 75 min |
+| 10 min (healthy) | 75 min |
+| 60 min | 90 min |
+| 250 min (observed) | 360 min |
+| days (sweep was down) | 360 min, capped |
+
+So a dropped schedule delays a reminder rather than losing it, and fixing the
+cadence tightens the window back down on its own with nothing to reconfigure.
+When the window is widened, the response sets `windowWidened: true` and the
+workflow logs a warning — that flag is the signal your scheduler is
+under-running.
+
+Dry runs deliberately do not record a sweep: nothing was sent, so nothing was
+covered, and marking it would shrink the next real window.
+
+`REMINDER_LEAD_MINUTES` sets the floor (default 75);
+`REMINDER_MAX_LEAD_MINUTES` sets the ceiling (default 360).
 
 ### "Unsaved" vs. "unselected" picks
 
@@ -32,8 +77,13 @@ is correct, since an unsaved pick would not be graded either.
 
 ### 1. Database
 
-Run `sql/001_discord_notifications.sql` once against the Neon database (the
-Neon console's SQL editor is fine). Every statement is idempotent.
+Run both files in `sql/` against the Neon database (the Neon console's SQL
+editor is fine), in order:
+
+1. `sql/001_discord_notifications.sql` — settings columns and the dedupe table.
+2. `sql/002_reminder_sweeps.sql` — the sweep log the adaptive window reads.
+
+Every statement is idempotent, so re-running either is harmless.
 
 ### 2. Discord webhook
 
@@ -49,7 +99,8 @@ Treat that URL as a secret — anyone holding it can post to the channel.
 | `DISCORD_WEBHOOK_URL` | yes | The webhook from step 2. |
 | `CRON_SECRET` | yes | Any long random string. The endpoint refuses to run without it rather than falling back to open. |
 | `PICKEM_SITE_URL` | no | Included as a link in the message, e.g. `https://pickem.example.com`. |
-| `REMINDER_LEAD_MINUTES` | no | Defaults to `75`. |
+| `REMINDER_LEAD_MINUTES` | no | Floor for the reminder window, in minutes. Defaults to `75`. |
+| `REMINDER_MAX_LEAD_MINUTES` | no | Ceiling for adaptive widening. Defaults to `360`. |
 | `ADMIN_PASSWORD` | yes | Already used by the other commissioner tools. Reminder settings are gated on it too. |
 
 ### 4. GitHub repository secrets

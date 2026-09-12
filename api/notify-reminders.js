@@ -12,16 +12,52 @@ import { sql } from '../lib/db';
 import { SEASON, SCORING_MIN_WEEK } from '../lib/season';
 import { sendDiscordMessage, discordConfigured, buildReminderMessage } from '../lib/discord';
 
-// How far ahead of kickoff to warn. Deliberately wider than the "one hour"
-// this implements: GitHub Actions schedules drift, routinely by 5-15 minutes,
-// so a window pinned at exactly 60 would let games slip past unpinged. The
-// dedupe table is what keeps the wide window from re-sending, and in practice
-// a player hears about it 60-75 minutes out.
+// How far ahead of kickoff to warn, when the sweep is running on time.
 const DEFAULT_LEAD_MINUTES = 75;
 
-function leadMinutes() {
-  const n = Number(process.env.REMINDER_LEAD_MINUTES);
-  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : DEFAULT_LEAD_MINUTES;
+// Ceiling on the adaptive widening below. Past this the reminder is so far
+// ahead of kickoff that it stops being a reminder, and a sweep that has been
+// down for days should not ping about next weekend's slate.
+const DEFAULT_MAX_LEAD_MINUTES = 360;
+
+function envMinutes(name, fallback) {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : fallback;
+}
+
+/**
+ * The window has to be wider than the interval between sweeps, or games lock
+ * in the gap and are never pinged -- `kickoff_at > NOW()` drops them for good.
+ *
+ * A fixed window cannot guarantee that, because the scheduler's real cadence
+ * is not ours to choose: GitHub Actions silently drops most high-frequency
+ * firings, and a ten-minute schedule was observed producing three runs in
+ * eight hours (gaps of 250 and 215 minutes). So measure the gap since the last
+ * real sweep and cover 1.5x of it, which absorbs the next gap being somewhat
+ * worse than the last.
+ *
+ * On a healthy scheduler the gap is small and this stays at the configured
+ * lead, so fixing the cadence tightens the window automatically -- nothing to
+ * reconfigure. A missing sweep log (migration not yet run) falls back to the
+ * fixed lead rather than failing the sweep.
+ */
+async function resolveWindow() {
+  const lead = envMinutes('REMINDER_LEAD_MINUTES', DEFAULT_LEAD_MINUTES);
+  const max = Math.max(lead, envMinutes('REMINDER_MAX_LEAD_MINUTES', DEFAULT_MAX_LEAD_MINUTES));
+
+  let gapMinutes = null;
+  try {
+    const [row] = await sql`
+      SELECT EXTRACT(EPOCH FROM (NOW() - last_run_at)) / 60 AS gap_minutes
+      FROM reminder_sweeps WHERE id = 1
+    `;
+    if (row?.gap_minutes != null) gapMinutes = Number(row.gap_minutes);
+  } catch (e) {
+    console.warn('Sweep log unavailable (run sql/002_reminder_sweeps.sql):', e.message);
+  }
+
+  const needed = gapMinutes === null ? lead : Math.ceil(gapMinutes * 1.5);
+  return { lead, max, gapMinutes, minutes: Math.min(Math.max(lead, needed), max) };
 }
 
 export default async function handler(req, res) {
@@ -50,7 +86,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const lead = leadMinutes();
+    const window = await resolveWindow();
+    const lead = window.minutes;
 
     // Opted-in players x games locking soon, minus anything already picked and
     // anything already pinged. The test week is excluded: it is scratch data
@@ -128,9 +165,27 @@ export default async function handler(req, res) {
       sent.push({ name: entry.name, games: entry.games.length });
     }
 
+    // A dry run deliberately does not record a sweep: nothing was sent, so it
+    // covered nothing, and marking it would shrink the next real window.
+    if (!dryRun) {
+      try {
+        await sql`
+          INSERT INTO reminder_sweeps (id, last_run_at) VALUES (1, NOW())
+          ON CONFLICT (id) DO UPDATE SET last_run_at = NOW()
+        `;
+      } catch (e) {
+        console.warn('Could not record sweep (run sql/002_reminder_sweeps.sql):', e.message);
+      }
+    }
+
     return res.status(200).json({
       dryRun,
       leadMinutes: lead,
+      configuredLeadMinutes: window.lead,
+      // How long since the last real sweep, and whether that forced the window
+      // wider than configured. A widened window is the scheduler under-running.
+      minutesSinceLastSweep: window.gapMinutes === null ? null : Math.round(window.gapMinutes),
+      windowWidened: lead > window.lead,
       candidates: rows.length,
       notified: sent.length,
       sent,
@@ -140,9 +195,9 @@ export default async function handler(req, res) {
     console.error('Reminder sweep error:', error);
     // The most likely first-run failure by a distance. Say so plainly rather
     // than making someone read the function logs to find it.
-    if (/notify_enabled|discord_user_id|pick_reminders_sent/.test(error.message || '')) {
+    if (/notify_enabled|discord_user_id|pick_reminders_sent|reminder_sweeps/.test(error.message || '')) {
       return res.status(500).json({
-        error: 'Reminder schema is missing. Run sql/001_discord_notifications.sql against the database.',
+        error: 'Reminder schema is missing. Run the files in sql/ against the database.',
       });
     }
     return res.status(500).json({ error: 'Reminder sweep failed' });

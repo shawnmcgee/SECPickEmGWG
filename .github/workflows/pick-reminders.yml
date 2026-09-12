@@ -1,15 +1,24 @@
 name: Pick reminders
 
-# Nudges opted-in players on Discord about games locking within the hour.
+# Nudges opted-in players on Discord about games locking soon.
 #
-# Why here and not Vercel Cron: Vercel's Hobby plan runs cron jobs once a day,
-# within a loose window -- useless for an hour-ahead warning. Actions gives a
-# 10-minute sweep for free. It is best-effort and can fire late (5-15 minutes
-# is routine, more when GitHub is busy), which is exactly why the endpoint's
-# lead window is 75 minutes rather than 60.
+# READ THIS BEFORE TRUSTING THE SCHEDULE. GitHub does not merely delay
+# high-frequency cron, it silently drops most firings: this schedule was
+# observed producing three runs in eight hours, with gaps of 250 and 215
+# minutes, and consecutive run numbers confirming the missing runs were never
+# created rather than failing. Anything time-critical wants a real scheduler
+# (cron-job.org, Upstash, or Vercel Cron on a paid plan) pointed at the same
+# endpoint -- see docs/discord-reminders.md.
+#
+# The endpoint defends itself by measuring the gap between sweeps and widening
+# its window to cover it, so a dropped schedule delays a reminder rather than
+# losing it. That is a safety net, not a substitute for a scheduler that runs.
+#
+# Minutes are offset from the top of the hour because GitHub's own guidance is
+# that :00 is its busiest moment and the likeliest to be dropped.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '7,17,27,37,47,57 * * * *'
   workflow_dispatch:
     inputs:
       dryRun:
@@ -89,6 +98,17 @@ jobs:
           echo "HTTP $http"
           cat response.json
           echo
+
+          # "notified" counts players the sweep matched. On a dry run that is
+          # who WOULD be pinged -- reading it as a send is the obvious trap.
+          if [ "$DRY_RUN" = "1" ] && [ "$http" = "200" ]; then
+            would=$(grep -oE '"notified":[[:space:]]*[0-9]+' response.json | head -1 | grep -oE '[0-9]+')
+            echo "::notice::DRY RUN - nothing was sent. ${would:-0} player(s) would have been pinged. Re-run with 'Report who would be pinged' UNCHECKED to send for real."
+          fi
+
+          if grep -qE '"windowWidened":[[:space:]]*true' response.json 2>/dev/null; then
+            echo "::warning::The sweep widened its window because the previous run was long ago - the schedule is being dropped. Reminders still go out, but earlier than intended. See docs/discord-reminders.md for a reliable scheduler."
+          fi
 
           if [ "$http" = "401" ]; then
             echo "::error::401 - CRON_SECRET here does not match the one set in Vercel. The two must be byte-identical."
