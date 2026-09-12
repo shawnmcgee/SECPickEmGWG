@@ -141,6 +141,13 @@ function fmtDay(iso) {
 }
 const fmtLine = (n) => (n > 0 ? `+${n}` : `${n}`);
 
+/* Player names are free text, and the reminder panel puts them inside
+   attributes (`value="..."`, `data-name="..."`) where a stray quote would
+   break out of the tag. Escape on the way in rather than trusting the input. */
+const escapeHtml = (s) => String(s ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
+
 /* --- toast -------------------------------------------------------------- */
 let toastTimer;
 function toast(msg, isError = false) {
@@ -465,7 +472,7 @@ async function loadPickStatus() {
     box.innerHTML =
       data.players.map((p) => `
         <div class="status-row">
-          <span>${p.name}${p.noPicksThisSeason ? '<em class="status-note">no picks this season</em>' : ''}</span>
+          <span>${p.name}${p.remindersOn ? '<span class="status-bell" title="Discord reminders on">\u{1F514}</span>' : ''}${p.noPicksThisSeason ? '<em class="status-note">no picks this season</em>' : ''}</span>
           <span class="status-count">${p.picked}/${data.totalGames}</span>
           <span class="status-badge ${p.state}">${label[p.state]}</span>
         </div>`).join('') +
@@ -646,6 +653,86 @@ function signOut() {
   document.getElementById('loginModal').hidden = false;
 }
 
+/* --- discord reminders (commissioner) ----------------------------------- */
+/*
+ * Settings only. The reminders themselves are sent server-side by
+ * /api/notify-reminders on a schedule -- no browser needs to be open.
+ *
+ * Commissioner-gated because a Discord ID points at a real person's account:
+ * the app's name-only identity is fine for picks, but not for deciding who
+ * gets pinged.
+ */
+function adminPw() {
+  return document.getElementById('adminPassword').value;
+}
+
+async function loadNotifySettings() {
+  const box = document.getElementById('notifyList');
+  const saveBtn = document.getElementById('saveNotifyBtn');
+  const pw = adminPw();
+  if (!pw) return toast('Enter the commissioner password first', true);
+
+  box.innerHTML = '<p class="hint">Loading…</p>';
+  saveBtn.hidden = true;
+
+  try {
+    const res = await fetch('/api/notify-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminPassword: pw, action: 'list' }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+
+    if (!data.players.length) {
+      box.innerHTML = '<p class="hint">No players yet.</p>';
+      return;
+    }
+
+    box.innerHTML = data.players.map((p) => `
+      <div class="notify-row" data-name="${escapeAttr(p.userName)}">
+        <span class="notify-name">${escapeHtml(p.userName)}</span>
+        <input type="text" class="notify-id" inputmode="numeric"
+               maxlength="20" placeholder="Discord user ID" autocomplete="off"
+               aria-label="Discord user ID for ${escapeAttr(p.userName)}"
+               value="${escapeAttr(p.discordUserId)}">
+        <label class="notify-switch">
+          <input type="checkbox" class="notify-on" ${p.notifyEnabled ? 'checked' : ''}>
+          <span>Ping</span>
+        </label>
+      </div>`).join('');
+    saveBtn.hidden = false;
+  } catch (err) {
+    box.innerHTML = `<p class="hint">Could not load reminder settings: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+async function saveNotifySettings() {
+  const pw = adminPw();
+  if (!pw) return toast('Enter the commissioner password first', true);
+
+  const settings = [...document.querySelectorAll('.notify-row')].map((row) => ({
+    userName: row.dataset.name,
+    discordUserId: row.querySelector('.notify-id').value.trim(),
+    notifyEnabled: row.querySelector('.notify-on').checked,
+  }));
+  if (!settings.length) return toast('Load the settings first', true);
+
+  try {
+    const res = await fetch('/api/notify-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminPassword: pw, action: 'save', settings }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Save failed');
+    toast(`Saved reminders for ${data.saved} player${data.saved === 1 ? '' : 's'}`);
+    loadPickStatus();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
 /* --- admin -------------------------------------------------------------- */
 async function enterScore() {
   const gameId = document.getElementById('gameIdForScore').value;
@@ -707,6 +794,7 @@ function init() {
     if (ok) { await loadPicks(currentWeek); render(); renderStandings(); }
   };
   document.getElementById('userChip').onclick = signOut;
+
   document.getElementById('loginBtn').onclick = () =>
     signIn(document.getElementById('nameInput').value);
   document.getElementById('nameInput').addEventListener('keydown', (e) => {
@@ -724,6 +812,8 @@ function init() {
   document.getElementById('fetchScoresBtn').onclick = fetchScores;
   document.getElementById('applyScoresBtn').onclick = applyScores;
   document.getElementById('deleteUserBtn').onclick = deleteUser;
+  document.getElementById('loadNotifyBtn').onclick = loadNotifySettings;
+  document.getElementById('saveNotifyBtn').onclick = saveNotifySettings;
 
   window.addEventListener('beforeunload', (e) => {
     if (dirty) { e.preventDefault(); e.returnValue = ''; }
@@ -734,7 +824,7 @@ function init() {
     currentUser = saved;
     const chip = document.getElementById('userChip');
     chip.textContent = saved; chip.hidden = false;
-    goToWeek(currentWeek);
+      goToWeek(currentWeek);
   } else {
     document.getElementById('loginModal').hidden = false;
     goToWeek(currentWeek);

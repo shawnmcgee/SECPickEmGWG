@@ -92,6 +92,25 @@
       </div>
 
       <div class="admin-group">
+        <h4>Discord reminders</h4>
+        <p class="hint">
+          Pings a player in the league channel about an hour before a game locks
+          if they have no saved pick for it. Picks selected but never submitted
+          count as unpicked &mdash; they only exist in that player's browser
+          until they hit submit.
+        </p>
+        <p class="hint">
+          Player IDs come from Discord: Settings &rarr; Advanced &rarr; Developer
+          Mode on, then right-click a name and <em>Copy User ID</em>.
+        </p>
+        <div id="notifyList" class="notify-list"></div>
+        <div class="status-actions">
+          <button id="loadNotifyBtn">Load reminder settings</button>
+          <button id="saveNotifyBtn" hidden>Save reminders</button>
+        </div>
+      </div>
+
+      <div class="admin-group">
         <h4>Remove a player</h4>
         <input type="text" id="userToDelete" placeholder="Name" autocomplete="off">
         <button id="deleteUserBtn" class="danger">Delete player and picks</button>

@@ -300,12 +300,35 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
   display: block; font-style: normal; font-size: 10.5px; color: var(--dim);
   letter-spacing: .06em; text-transform: uppercase; margin-top: 2px;
 }
+/* Inline, unlike .status-note -- it belongs beside the name, not under it. */
+.status-bell { font-size: 11px; margin-left: 5px; }
+
 .status-tally {
   font-size: 12px; color: var(--dim); padding: 9px 0 2px;
   letter-spacing: .04em; border-top: 1px solid var(--rule); margin-top: 4px;
 }
 .status-actions { display: flex; gap: 9px; flex-wrap: wrap; }
 .status-actions button { flex: 1; min-width: 140px; }
+
+/* --- discord reminders (commissioner) ----------------------------------- */
+.notify-list:not(:empty) { margin-bottom: 9px; }
+.notify-row {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 7px 0; border-bottom: 1px solid var(--rule);
+}
+.notify-name { flex: 1 1 100px; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.notify-id {
+  flex: 2 1 170px; min-width: 0; padding: 7px 9px; font: inherit;
+  font-family: var(--mono); font-size: 13px;
+  border: 1px solid var(--rule); border-radius: 3px; background: var(--paper);
+}
+.notify-switch {
+  display: flex; align-items: center; gap: 6px; flex: none; cursor: pointer;
+  font-size: 12px; color: var(--dim); letter-spacing: .06em; text-transform: uppercase;
+}
+.notify-switch input[type="checkbox"] {
+  width: 18px; height: 18px; margin: 0; accent-color: var(--ink);
+}
 
 /* --- score proposals ---------------------------------------------------- */
 .proposals:not(:empty) { margin-top: 12px; border-top: 1px solid var(--rule); }
