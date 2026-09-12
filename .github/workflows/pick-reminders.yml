@@ -31,28 +31,70 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           DRY_RUN: ${{ inputs.dryRun && '1' || '0' }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
 
-          if [ -z "${SITE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+          # Secrets pasted through a web form routinely pick up a trailing
+          # newline, and a value that wrapped on screen can pick up one in the
+          # middle. Vercel serves HTTP/2, where nghttp2 validates every header
+          # before a byte goes out -- an embedded newline in the Authorization
+          # value kills the request with "curl: (43) Failed sending HTTP
+          # request", which says nothing about the real cause. Strip and report.
+          clean() { printf '%s' "$1" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+
+          site=$(clean "${SITE_URL:-}")
+          secret=$(clean "${CRON_SECRET:-}")
+
+          if [ -z "$site" ] || [ -z "$secret" ]; then
             echo "::error::PICKEM_SITE_URL and CRON_SECRET repository secrets must both be set."
             exit 1
           fi
 
-          url="${SITE_URL%/}/api/notify-reminders"
+          if [ "$secret" != "${CRON_SECRET}" ]; then
+            echo "::warning::CRON_SECRET contained line breaks or padding whitespace. Stripped it for this run, but re-save the secret as a single line -- and make sure it matches the Vercel value exactly, or the request will come back 401."
+          fi
+          if [ "$site" != "${SITE_URL}" ]; then
+            echo "::warning::PICKEM_SITE_URL contained line breaks or padding whitespace. Stripped it for this run; re-save it as a single line."
+          fi
+
+          case "$site" in
+            https://*|http://*) ;;
+            *) echo "::error::PICKEM_SITE_URL must include the scheme, e.g. https://your-app.vercel.app"; exit 1 ;;
+          esac
+
+          url="${site%/}/api/notify-reminders"
           if [ "$DRY_RUN" = "1" ]; then
             url="${url}?dryRun=1"
             echo "Dry run - nothing will be sent."
           fi
 
-          code=$(curl -sS --max-time 60 -o response.json -w '%{http_code}' \
+          http=$(curl -sS --max-time 60 -o response.json -w '%{http_code}' \
             -X POST "$url" \
-            -H "Authorization: Bearer ${CRON_SECRET}")
+            -H "Authorization: Bearer ${secret}" 2>curl.err)
+          rc=$?
 
-          echo "HTTP $code"
+          # curl's own failures need catching separately: a bare `set -e` death
+          # here reports the exit code with none of the context below.
+          if [ "$rc" -ne 0 ]; then
+            cat curl.err
+            case "$rc" in
+              43) echo "::error::curl exit 43 - the Authorization header was rejected before sending. CRON_SECRET almost certainly contains a line break. Re-save it in GitHub as a single line." ;;
+              6)  echo "::error::curl exit 6 - could not resolve the host in PICKEM_SITE_URL." ;;
+              7)  echo "::error::curl exit 7 - could not connect. Check PICKEM_SITE_URL points at the deployed site." ;;
+              28) echo "::error::curl exit 28 - request timed out after 60s." ;;
+              *)  echo "::error::curl failed with exit $rc." ;;
+            esac
+            exit 1
+          fi
+
+          echo "HTTP $http"
           cat response.json
           echo
 
-          if [ "$code" != "200" ]; then
-            echo "::error::Reminder sweep returned HTTP $code"
+          if [ "$http" = "401" ]; then
+            echo "::error::401 - CRON_SECRET here does not match the one set in Vercel. The two must be byte-identical."
+            exit 1
+          fi
+          if [ "$http" != "200" ]; then
+            echo "::error::Reminder sweep returned HTTP $http"
             exit 1
           fi

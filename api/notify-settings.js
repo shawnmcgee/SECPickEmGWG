@@ -11,7 +11,13 @@
 // POST only, both for reading and writing: the password travels in the body,
 // where it stays out of URLs, browser history and access logs.
 import { sql } from '../lib/db';
-import { isValidDiscordUserId } from '../lib/discord';
+import {
+  isValidDiscordUserId,
+  discordConfigured,
+  sendDiscordMessage,
+  buildReminderMessage,
+  sampleReminderGames,
+} from '../lib/discord';
 
 function readBody(req) {
   if (!req.body) return {};
@@ -38,7 +44,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { adminPassword, action = 'list', settings } = readBody(req);
+    const { adminPassword, action = 'list', settings, userName, discordUserId } = readBody(req);
 
     const authError = checkAdmin(adminPassword);
     if (authError) return res.status(401).json({ error: authError });
@@ -104,6 +110,40 @@ export default async function handler(req, res) {
       }
 
       return res.status(200).json({ success: true, saved });
+    }
+
+    /* ------------------------------------------------------------------ */
+    if (action === 'test') {
+      if (!discordConfigured()) {
+        return res.status(500).json({ error: 'DISCORD_WEBHOOK_URL is not configured on the server' });
+      }
+
+      const name = String(userName ?? '').trim().slice(0, 40) || 'there';
+      const rawId = String(discordUserId ?? '').trim();
+      if (!isValidDiscordUserId(rawId)) {
+        return res.status(400).json({ error: `${name}: add a valid Discord user ID before sending a test` });
+      }
+
+      // Built by the same function the real sweep uses, so this is the actual
+      // wording -- only the slate is invented. The banner keeps a test ping
+      // from reading as a genuine one in the channel.
+      const body = buildReminderMessage({
+        discordUserId: rawId,
+        name,
+        games: sampleReminderGames(),
+        siteUrl: process.env.PICKEM_SITE_URL || '',
+      });
+      const content = `**Test ping** — this is exactly how a real pick reminder reads.\n\n${body}`;
+
+      try {
+        await sendDiscordMessage({ content, mentionUserIds: [rawId] });
+      } catch (e) {
+        console.error('Test ping failed:', e.message);
+        return res.status(502).json({ error: `Discord rejected the message: ${e.message}` });
+      }
+
+      // Returned so the panel can show the wording without a trip to Discord.
+      return res.status(200).json({ success: true, sentTo: name, content });
     }
 
     return res.status(400).json({ error: `Unknown action "${action}"` });

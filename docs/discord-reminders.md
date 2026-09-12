@@ -80,6 +80,32 @@ recurring ping at a stranger. `ADMIN_PASSWORD` gates both reading and writing
 these settings, and `/api/notify-settings` is POST-only so the password stays
 out of URLs, browser history and access logs.
 
+## The message
+
+```
+<@172150183989770240> heads up Shawn — 2 games you haven't picked lock within the hour:
+• Georgia at Alabama — Sat 3:30 PM ET
+• LSU at Ole Miss — Sat 7:00 PM ET
+
+Pick 'em: https://secpickem.vercel.app
+```
+
+The trailing link only appears when `PICKEM_SITE_URL` is set. Singular and
+plural both read correctly ("1 game … locks", "2 games … lock"). Wording lives
+in `buildReminderMessage` in `lib/discord.js`.
+
+## Sending a real test ping
+
+Each row in **Commissioner tools → Discord reminders** has a **Test** button. It
+posts a real message to the channel, pinging the ID currently typed into that
+row — so delivery can be verified before saving anything, and before any game
+is close to locking. The wording also appears inline under the row.
+
+The test is built by the same `buildReminderMessage` the live sweep uses, with
+only the slate invented, so it cannot drift from what actually ships. It carries
+a **Test ping** banner so nobody in the channel mistakes it for a real one, and
+it writes nothing to `pick_reminders_sent`.
+
 ## Testing without spamming the channel
 
 `?dryRun=1` reports exactly who would be pinged and with what text, without
