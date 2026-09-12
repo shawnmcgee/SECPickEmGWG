@@ -9,8 +9,8 @@
 // Both are treated the same here -- an unsaved pick does not count, so the
 // message is accurate either way.
 import { sql } from '../lib/db';
-import { SEASON, SCORING_MIN_WEEK, formatKickoffET } from '../lib/season';
-import { sendDiscordMessage, discordConfigured } from '../lib/discord';
+import { SEASON, SCORING_MIN_WEEK } from '../lib/season';
+import { sendDiscordMessage, discordConfigured, buildReminderMessage } from '../lib/discord';
 
 // How far ahead of kickoff to warn. Deliberately wider than the "one hour"
 // this implements: GitHub Actions schedules drift, routinely by 5-15 minutes,
@@ -22,17 +22,6 @@ const DEFAULT_LEAD_MINUTES = 75;
 function leadMinutes() {
   const n = Number(process.env.REMINDER_LEAD_MINUTES);
   return Number.isFinite(n) && n > 0 ? Math.trunc(n) : DEFAULT_LEAD_MINUTES;
-}
-
-function buildMessage({ discordUserId, name, games, siteUrl }) {
-  const count = games.length;
-  const lines = games.map((g) => `• ${g.away_team} at ${g.home_team} — ${formatKickoffET(g.kickoff_at)}`);
-  const head =
-    `<@${discordUserId}> heads up ${name} — ${count} game${count === 1 ? '' : 's'} ` +
-    `you haven't picked lock${count === 1 ? 's' : ''} within the hour:`;
-  return [head, ...lines, siteUrl ? `\nPick 'em: ${siteUrl}` : null]
-    .filter(Boolean)
-    .join('\n');
 }
 
 export default async function handler(req, res) {
@@ -106,7 +95,7 @@ export default async function handler(req, res) {
     const failed = [];
 
     for (const entry of byUser.values()) {
-      const content = buildMessage({ ...entry, siteUrl });
+      const content = buildReminderMessage({ ...entry, siteUrl });
 
       if (dryRun) {
         sent.push({ name: entry.name, games: entry.games.length, content });

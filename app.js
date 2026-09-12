@@ -700,10 +700,60 @@ async function loadNotifySettings() {
           <input type="checkbox" class="notify-on" ${p.notifyEnabled ? 'checked' : ''}>
           <span>Ping</span>
         </label>
+        <button type="button" class="notify-test">Test</button>
       </div>`).join('');
+
+    box.querySelectorAll('.notify-test').forEach((btn) => {
+      btn.onclick = () => sendTestPing(btn.closest('.notify-row'));
+    });
     saveBtn.hidden = false;
   } catch (err) {
     box.innerHTML = `<p class="hint">Could not load reminder settings: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+/*
+ * Sends a real message to the channel using the ID typed into the row, so it
+ * can be verified before saving. The server builds it with the same function
+ * the live sweep uses -- only the slate is invented.
+ */
+async function sendTestPing(row) {
+  const pw = adminPw();
+  if (!pw) return toast('Enter the commissioner password first', true);
+
+  const btn = row.querySelector('.notify-test');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    const res = await fetch('/api/notify-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        adminPassword: pw,
+        action: 'test',
+        userName: row.dataset.name,
+        discordUserId: row.querySelector('.notify-id').value.trim(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Test failed');
+    toast(`Test ping sent for ${data.sentTo}`);
+
+    // Show the wording inline too -- checking it should not mean tabbing to
+    // Discord and back.
+    let preview = row.nextElementSibling;
+    if (!preview?.classList.contains('notify-preview')) {
+      preview = document.createElement('pre');
+      preview.className = 'notify-preview';
+      row.after(preview);
+    }
+    preview.textContent = data.content;
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Test';
   }
 }
 

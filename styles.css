@@ -329,6 +329,21 @@ main { max-width: 720px; margin: 0 auto; padding-bottom: 40px; }
 .notify-switch input[type="checkbox"] {
   width: 18px; height: 18px; margin: 0; accent-color: var(--ink);
 }
+.notify-test {
+  flex: none; padding: 6px 12px; background: none; color: var(--ink);
+  border: 1px solid var(--rule); border-radius: 3px; cursor: pointer;
+  font-family: var(--display); font-size: 12px; letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.notify-test:hover:not(:disabled) { border-color: var(--ink); }
+.notify-test:disabled { opacity: .55; cursor: default; }
+/* Pre-wrapped so the message reads exactly as Discord will render it. */
+.notify-preview {
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  font-family: var(--mono); font-size: 12px; line-height: 1.5;
+  background: var(--hilite); border: 1px solid var(--rule); border-radius: 3px;
+  padding: 10px; margin: 0 0 7px;
+}
 
 /* --- score proposals ---------------------------------------------------- */
 .proposals:not(:empty) { margin-top: 12px; border-top: 1px solid var(--rule); }
