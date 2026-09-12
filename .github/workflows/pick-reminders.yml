@@ -1,0 +1,58 @@
+name: Pick reminders
+
+# Nudges opted-in players on Discord about games locking within the hour.
+#
+# Why here and not Vercel Cron: Vercel's Hobby plan runs cron jobs once a day,
+# within a loose window -- useless for an hour-ahead warning. Actions gives a
+# 10-minute sweep for free. It is best-effort and can fire late (5-15 minutes
+# is routine, more when GitHub is busy), which is exactly why the endpoint's
+# lead window is 75 minutes rather than 60.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'Report who would be pinged without sending anything'
+        type: boolean
+        default: true
+
+concurrency:
+  group: pick-reminders
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder sweep
+        env:
+          SITE_URL: ${{ secrets.PICKEM_SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DRY_RUN: ${{ inputs.dryRun && '1' || '0' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SITE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::PICKEM_SITE_URL and CRON_SECRET repository secrets must both be set."
+            exit 1
+          fi
+
+          url="${SITE_URL%/}/api/notify-reminders"
+          if [ "$DRY_RUN" = "1" ]; then
+            url="${url}?dryRun=1"
+            echo "Dry run - nothing will be sent."
+          fi
+
+          code=$(curl -sS --max-time 60 -o response.json -w '%{http_code}' \
+            -X POST "$url" \
+            -H "Authorization: Bearer ${CRON_SECRET}")
+
+          echo "HTTP $code"
+          cat response.json
+          echo
+
+          if [ "$code" != "200" ]; then
+            echo "::error::Reminder sweep returned HTTP $code"
+            exit 1
+          fi

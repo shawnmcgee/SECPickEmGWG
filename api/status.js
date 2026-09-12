@@ -40,6 +40,21 @@ export default async function handler(req, res) {
       `,
     ]);
 
+    // Kept separate and best-effort on purpose: these columns only exist once
+    // sql/001_discord_notifications.sql has been run. Folding them into the
+    // roster query would mean a deploy ahead of that migration takes the whole
+    // commissioner panel down, not just the bell icons.
+    let remindersOn = new Set();
+    try {
+      const rows = await sql`
+        SELECT name FROM users
+        WHERE notify_enabled AND discord_user_id IS NOT NULL
+      `;
+      remindersOn = new Set(rows.map((r) => r.name));
+    } catch (e) {
+      console.warn('Reminder columns unavailable (run sql/001_discord_notifications.sql):', e.message);
+    }
+
     const total = games[0]?.total ?? 0;
     const locked = games[0]?.locked ?? 0;
 
@@ -56,6 +71,10 @@ export default async function handler(req, res) {
         // would also hide a genuinely new player who hasn't started.
         // To drop someone who has left the league, delete them outright.
         noPicksThisSeason: p.season_picks === 0,
+        // Whether this player gets a Discord ping before kickoff. The ID
+        // itself is deliberately not returned -- the panel only needs to know
+        // that reminders are wired up, not who to ping.
+        remindersOn: remindersOn.has(p.name),
         state: made === 0 ? 'none' : missing === 0 ? 'complete' : 'partial',
       };
     });

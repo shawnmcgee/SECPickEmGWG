@@ -14,7 +14,10 @@
 
 <header class="top">
   <h2><small>Southeastern Conference</small>Pick'em <span id="seasonLabel">2026</span></h2>
-  <button id="userChip" class="user-chip" hidden></button>
+  <div class="top-actions">
+    <button id="notifyToggle" class="icon-btn" title="Discord reminders" aria-label="Discord reminders" hidden>&#128276;</button>
+    <button id="userChip" class="user-chip" hidden></button>
+  </div>
 </header>
 
 <nav class="weekbar">
@@ -106,6 +109,36 @@
     <p class="hint">Use the same name every week so your picks stay together.</p>
     <input type="text" id="nameInput" placeholder="Your name" autocomplete="off" maxlength="40">
     <button id="loginBtn">Start picking</button>
+  </div>
+</div>
+
+<div id="notifyModal" class="modal" hidden>
+  <div class="modal-card">
+    <h3>Discord reminders</h3>
+    <p class="hint">
+      Get pinged in the league channel about an hour before a game locks if you
+      still have picks open. Picks you selected but never submitted count as
+      open &mdash; they only exist in this browser until you hit submit.
+    </p>
+
+    <label>Your Discord user ID
+      <input type="text" id="discordIdInput" placeholder="e.g. 172150183989770240"
+             inputmode="numeric" autocomplete="off" maxlength="20">
+    </label>
+    <p class="hint">
+      In Discord: Settings &rarr; Advanced &rarr; Developer Mode on, then
+      right-click your name and <em>Copy User ID</em>.
+    </p>
+
+    <label class="switch-row">
+      <input type="checkbox" id="notifyEnabled">
+      <span>Ping me when I have picks open</span>
+    </label>
+
+    <div class="modal-actions">
+      <button id="saveNotifyBtn">Save</button>
+      <button id="closeNotifyBtn" class="ghost">Close</button>
+    </div>
   </div>
 </div>
 

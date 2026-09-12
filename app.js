@@ -465,7 +465,7 @@ async function loadPickStatus() {
     box.innerHTML =
       data.players.map((p) => `
         <div class="status-row">
-          <span>${p.name}${p.noPicksThisSeason ? '<em class="status-note">no picks this season</em>' : ''}</span>
+          <span>${p.name}${p.remindersOn ? '<span class="status-bell" title="Discord reminders on">\u{1F514}</span>' : ''}${p.noPicksThisSeason ? '<em class="status-note">no picks this season</em>' : ''}</span>
           <span class="status-count">${p.picked}/${data.totalGames}</span>
           <span class="status-badge ${p.state}">${label[p.state]}</span>
         </div>`).join('') +
@@ -636,6 +636,7 @@ function signIn(name) {
   const chip = document.getElementById('userChip');
   chip.textContent = currentUser;
   chip.hidden = false;
+  document.getElementById('notifyToggle').hidden = false;
   goToWeek(currentWeek);
 }
 function signOut() {
@@ -643,7 +644,60 @@ function signOut() {
   currentUser = null; userPicks = {};
   localStorage.removeItem(USER_KEY);
   document.getElementById('userChip').hidden = true;
+  document.getElementById('notifyToggle').hidden = true;
   document.getElementById('loginModal').hidden = false;
+}
+
+/* --- discord reminders -------------------------------------------------- */
+/*
+ * Settings only. The reminder itself is sent server-side by
+ * /api/notify-reminders on a schedule -- the browser is not involved and does
+ * not need to be open.
+ */
+async function openNotifySettings() {
+  if (!currentUser) return toast('Sign in first');
+  const modal = document.getElementById('notifyModal');
+  const idInput = document.getElementById('discordIdInput');
+  const toggle = document.getElementById('notifyEnabled');
+
+  idInput.value = '';
+  toggle.checked = false;
+  modal.hidden = false;
+
+  try {
+    const res = await fetch(`/api/notify-settings?userName=${encodeURIComponent(currentUser)}`, { cache: 'no-store' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    idInput.value = data.discordUserId || '';
+    toggle.checked = Boolean(data.notifyEnabled);
+  } catch (err) {
+    toast(`Could not load reminder settings: ${err.message}`, true);
+  }
+}
+
+function closeNotifySettings() {
+  document.getElementById('notifyModal').hidden = true;
+}
+
+async function saveNotifySettings() {
+  if (!currentUser) return toast('Sign in first');
+  const discordUserId = document.getElementById('discordIdInput').value.trim();
+  const notifyEnabled = document.getElementById('notifyEnabled').checked;
+
+  try {
+    const res = await fetch('/api/notify-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userName: currentUser, discordUserId, notifyEnabled }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Save failed');
+    toast(data.notifyEnabled ? 'Reminders on' : 'Reminders off');
+    closeNotifySettings();
+    loadPickStatus();
+  } catch (err) {
+    toast(err.message, true);
+  }
 }
 
 /* --- admin -------------------------------------------------------------- */
@@ -707,6 +761,9 @@ function init() {
     if (ok) { await loadPicks(currentWeek); render(); renderStandings(); }
   };
   document.getElementById('userChip').onclick = signOut;
+  document.getElementById('notifyToggle').onclick = openNotifySettings;
+  document.getElementById('saveNotifyBtn').onclick = saveNotifySettings;
+  document.getElementById('closeNotifyBtn').onclick = closeNotifySettings;
   document.getElementById('loginBtn').onclick = () =>
     signIn(document.getElementById('nameInput').value);
   document.getElementById('nameInput').addEventListener('keydown', (e) => {
@@ -734,6 +791,7 @@ function init() {
     currentUser = saved;
     const chip = document.getElementById('userChip');
     chip.textContent = saved; chip.hidden = false;
+    document.getElementById('notifyToggle').hidden = false;
     goToWeek(currentWeek);
   } else {
     document.getElementById('loginModal').hidden = false;
