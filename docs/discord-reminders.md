@@ -5,27 +5,86 @@ if they still have picks open for it.
 
 ## How it works
 
-A scheduler POSTs to `/api/notify-reminders` every few minutes (a GitHub Actions
-workflow ships as the default — see the caveat below). The endpoint looks for games kicking off inside the lead window, finds
-opted-in players with no saved pick for them, and posts one grouped message per
-player to a Discord channel webhook.
+The GitHub Actions workflow sweeps `/api/notify-reminders` every 5 minutes on
+game days. Each sweep looks for games kicking off inside the lead window (75
+minutes), finds opted-in players with no saved pick for them, and posts one
+grouped message per player to a Discord channel webhook. Reminders land 70–75
+minutes before kickoff.
 
 Every `(player, game)` that has been pinged is recorded in
 `pick_reminders_sent`, so however often the sweep runs, and however wide its
 window, each player hears about each game exactly once.
 
-### The scheduler is the weak link
+### Why the workflow is a loop, not a cron job
 
-**GitHub Actions does not merely delay high-frequency cron — it silently drops
-most firings.** Observed on this repo: a ten-minute schedule produced three runs
-in eight hours, with gaps of 250 and 215 minutes. The run numbers were
-consecutive, confirming the missing runs were never created rather than failing.
+**GitHub Actions silently drops most high-frequency cron firings.** Over the
+first 56 days of the 2026 season, a ten-minute schedule averaged 5.4 runs a day
+instead of 144, with gaps up to ~10 hours. One sweep per run meant reminders
+went out a median 3.6 hours before kickoff — easy to forget by game time — and
+about 8% of the clock had no coverage at all.
 
-That is fatal for a fixed window. A game locking in a 250-minute gap is never
-pinged at all: once `kickoff_at` passes, the sweep drops it for good.
+A run that does start, though, runs reliably. So each run is a loop
+(`.github/scripts/reminder-loop.sh`):
 
-**For reliable timing, point a real scheduler at the same endpoint** — the
-workflow is a backstop, not the plan:
+1. Sweep every 5 minutes for ~5h40m (the hosted-job limit is 6 hours).
+2. Start its own successor with `workflow_dispatch`, which cron's dropping does
+   not affect, and exit.
+3. Go idle — exit *without* a successor — once the next reminder is more than
+   24 hours out, so it is not holding a runner all week. On Thursday–Saturday
+   (ET) it stays up even with no games loaded yet, because a slate only reaches
+   the database once someone opens that week in the app.
+
+Cron is now just a wake-up call. It only has to land once in the 24-hour runway
+before a slate, and the worst gap observed was under 10 hours.
+
+Guard rails:
+
+- **One loop at a time.** A run stands down if an older run of the workflow is
+  already looping, so wake-up calls that land mid-slate exit in seconds. There
+  is deliberately no `concurrency:` group — it would queue those calls and
+  cancel them against each other.
+- **Fails toward sending.** If the endpoint errors or the next kickoff is
+  unknown, the loop stays awake and keeps sweeping.
+- **Loud on real breakage.** A 401 fails the run immediately. Six failed sweeps
+  in a row (30 min) stop the loop and fail the run, so GitHub emails you; the
+  next wake-up call tries again.
+- **Stays enabled.** GitHub disables scheduled workflows in public repos after
+  60 days without a commit, and a disabled workflow cannot run at all. Each
+  loop run re-enables the workflow, which resets that clock.
+
+Merging a change to the workflow, the loop script, or the endpoint starts the
+loop straight away (after a 2-minute pause for Vercel to deploy). To start it
+by hand: **Actions → Pick reminders → Run workflow** with *Report who would be
+pinged* **unchecked**. Checked — the default — is a one-off dry run.
+
+To stop reminders: **Actions → Pick reminders → ⋯ → Disable workflow**, then
+cancel the run in progress.
+
+### How wide the window is
+
+The loop declares its cadence: it calls
+`/api/notify-reminders?nextSweepMinutes=5`, and the endpoint uses a fixed
+75-minute window, since any sweep interval shorter than the lead catches every
+game. (Without this, the first sweep after a quiet midweek would see a gap of
+days and widen the window to the 6-hour cap, pinging hours early.)
+
+A caller that does *not* declare a cadence — an external scheduler, say — gets
+the older adaptive behaviour: each real sweep records itself in
+`reminder_sweeps`, and the next widens its window to 1.5× the gap since, capped
+at `REMINDER_MAX_LEAD_MINUTES` (default 360). When that widens past the lead,
+the response sets `windowWidened: true`.
+
+Dry runs deliberately do not record a sweep: nothing was sent, so nothing was
+covered.
+
+`REMINDER_LEAD_MINUTES` sets the lead (default 75);
+`REMINDER_MAX_LEAD_MINUTES` caps any widening (default 360).
+
+### Belt and braces: an external scheduler
+
+The loop needs nothing outside this repo. If you want a second, independent
+trigger anyway, point any of these at the same endpoint — the dedupe table
+means whichever sweep gets there first sends and the other finds nothing:
 
 | Option | Cost | Granularity |
 | --- | --- | --- |
@@ -33,38 +92,9 @@ workflow is a backstop, not the plan:
 | [Upstash QStash](https://upstash.com/docs/qstash) | free tier | 1 minute |
 | Vercel Cron | Pro plan | 1 minute (Hobby is once a day) |
 
-Any of them needs one POST to `https://your-site/api/notify-reminders` with the
-header `Authorization: Bearer <CRON_SECRET>`. Every ten minutes is plenty. Once
-a real scheduler is running, disable this repo's workflow (Actions → Pick
-reminders → ⋯ → Disable workflow) so the two do not overlap — though they are
-safe together, since the dedupe table means whichever sweep gets there first
-sends and the other finds nothing.
-
-### The window adapts to whatever cadence it actually gets
-
-Because the cadence is not ours to choose, the endpoint measures it. Each real
-sweep records itself in `reminder_sweeps`; the next one reads the gap and widens
-its window to 1.5× of it, capped at `REMINDER_MAX_LEAD_MINUTES` (default 360).
-
-| Gap since last sweep | Window used |
-| --- | --- |
-| first run ever | 75 min |
-| 10 min (healthy) | 75 min |
-| 60 min | 90 min |
-| 250 min (observed) | 360 min |
-| days (sweep was down) | 360 min, capped |
-
-So a dropped schedule delays a reminder rather than losing it, and fixing the
-cadence tightens the window back down on its own with nothing to reconfigure.
-When the window is widened, the response sets `windowWidened: true` and the
-workflow logs a warning — that flag is the signal your scheduler is
-under-running.
-
-Dry runs deliberately do not record a sweep: nothing was sent, so nothing was
-covered, and marking it would shrink the next real window.
-
-`REMINDER_LEAD_MINUTES` sets the floor (default 75);
-`REMINDER_MAX_LEAD_MINUTES` sets the ceiling (default 360).
+Each needs one POST to
+`https://your-site/api/notify-reminders?nextSweepMinutes=10` (match the number
+to its interval) with the header `Authorization: Bearer <CRON_SECRET>`.
 
 ### "Unsaved" vs. "unselected" picks
 
@@ -167,7 +197,7 @@ curl -X POST "https://your-site/api/notify-reminders?dryRun=1" \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-The workflow also has a **Run workflow** button that defaults to a dry run.
+The workflow's **Run workflow** button defaults to a dry run: one sweep, nothing sent, no loop.
 
 ## Notes
 
