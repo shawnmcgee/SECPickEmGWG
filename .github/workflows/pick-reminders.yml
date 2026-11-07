@@ -2,119 +2,79 @@ name: Pick reminders
 
 # Nudges opted-in players on Discord about games locking soon.
 #
-# READ THIS BEFORE TRUSTING THE SCHEDULE. GitHub does not merely delay
-# high-frequency cron, it silently drops most firings: this schedule was
-# observed producing three runs in eight hours, with gaps of 250 and 215
-# minutes, and consecutive run numbers confirming the missing runs were never
-# created rather than failing. Anything time-critical wants a real scheduler
-# (cron-job.org, Upstash, or Vercel Cron on a paid plan) pointed at the same
-# endpoint -- see docs/discord-reminders.md.
+# HOW THIS STAYS ON TIME. GitHub silently drops most high-frequency cron
+# firings: the old every-10-minutes schedule averaged 5.4 runs a day over 56
+# days, with gaps up to ~10 hours. A run that does start, though, runs fine.
+# So each run is a loop (.github/scripts/reminder-loop.sh): it sweeps every 5
+# minutes for ~5h40m, then starts its own successor with workflow_dispatch,
+# which cron's dropping does not affect. Reminders land ~70-75 minutes before
+# kickoff instead of whenever GitHub got around to it.
 #
-# The endpoint defends itself by measuring the gap between sweeps and widening
-# its window to cover it, so a dropped schedule delays a reminder rather than
-# losing it. That is a safety net, not a substitute for a scheduler that runs.
+# The loop sleeps between slates -- it exits without a successor once the next
+# reminder is more than a day out -- and the cron below exists only to wake it.
+# Cron only has to land once in that day-long runway, which even GitHub's
+# worst observed gap manages comfortably.
 #
-# Minutes are offset from the top of the hour because GitHub's own guidance is
-# that :00 is its busiest moment and the likeliest to be dropped.
+# Starting it by hand: Actions -> Pick reminders -> Run workflow, with "Report
+# who would be pinged" UNCHECKED. Checked (the default) is a one-off dry run.
+#
+# GitHub disables scheduled workflows in public repos after 60 days with no
+# commits, and a disabled workflow cannot run at all, loop included. Each loop
+# run re-enables this workflow, which resets that clock. If the Actions tab
+# ever shows it disabled anyway, re-enable it there.
+
 on:
   schedule:
+    # Wake-up calls only. Off the top of the hour, which GitHub documents as
+    # its busiest and likeliest-to-drop moment.
     - cron: '7,17,27,37,47,57 * * * *'
+  push:
+    # Merging a change to the reminder pipeline starts the loop right away
+    # rather than waiting for a wake-up call to land.
+    branches: [main]
+    paths:
+      - .github/workflows/pick-reminders.yml
+      - .github/scripts/reminder-loop.sh
+      - api/notify-reminders.js
   workflow_dispatch:
     inputs:
       dryRun:
         description: 'Report who would be pinged without sending anything'
         type: boolean
         default: true
+      handoffFrom:
+        description: 'Internal - leave blank (set when one loop run starts the next)'
+        type: string
+        default: ''
 
-concurrency:
-  group: pick-reminders
-  cancel-in-progress: false
+# Deliberately no `concurrency:` group. A group would queue every wake-up call
+# behind the running loop, and each new arrival cancels the one queued before
+# it -- a stream of "cancelled" runs. Instead the script itself stands down if
+# an older run is already looping, and the dedupe table makes any brief overlap
+# harmless.
+
+permissions:
+  actions: write   # list this workflow's runs, and dispatch the next loop run
+  contents: read
 
 jobs:
   remind:
     runs-on: ubuntu-latest
+    # GitHub's hard cap for a hosted job is 360. The loop hands off at 340.
+    timeout-minutes: 355
     steps:
-      - name: Trigger reminder sweep
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Reminder loop
         env:
           SITE_URL: ${{ secrets.PICKEM_SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          GH_TOKEN: ${{ github.token }}
           DRY_RUN: ${{ inputs.dryRun && '1' || '0' }}
-        run: |
-          set -uo pipefail
-
-          # Secrets pasted through a web form routinely pick up a trailing
-          # newline, and a value that wrapped on screen can pick up one in the
-          # middle. Vercel serves HTTP/2, where nghttp2 validates every header
-          # before a byte goes out -- an embedded newline in the Authorization
-          # value kills the request with "curl: (43) Failed sending HTTP
-          # request", which says nothing about the real cause. Strip and report.
-          clean() { printf '%s' "$1" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
-
-          site=$(clean "${SITE_URL:-}")
-          secret=$(clean "${CRON_SECRET:-}")
-
-          if [ -z "$site" ] || [ -z "$secret" ]; then
-            echo "::error::PICKEM_SITE_URL and CRON_SECRET repository secrets must both be set."
-            exit 1
-          fi
-
-          if [ "$secret" != "${CRON_SECRET}" ]; then
-            echo "::warning::CRON_SECRET contained line breaks or padding whitespace. Stripped it for this run, but re-save the secret as a single line -- and make sure it matches the Vercel value exactly, or the request will come back 401."
-          fi
-          if [ "$site" != "${SITE_URL}" ]; then
-            echo "::warning::PICKEM_SITE_URL contained line breaks or padding whitespace. Stripped it for this run; re-save it as a single line."
-          fi
-
-          case "$site" in
-            https://*|http://*) ;;
-            *) echo "::error::PICKEM_SITE_URL must include the scheme, e.g. https://your-app.vercel.app"; exit 1 ;;
-          esac
-
-          url="${site%/}/api/notify-reminders"
-          if [ "$DRY_RUN" = "1" ]; then
-            url="${url}?dryRun=1"
-            echo "Dry run - nothing will be sent."
-          fi
-
-          http=$(curl -sS --max-time 60 -o response.json -w '%{http_code}' \
-            -X POST "$url" \
-            -H "Authorization: Bearer ${secret}" 2>curl.err)
-          rc=$?
-
-          # curl's own failures need catching separately: a bare `set -e` death
-          # here reports the exit code with none of the context below.
-          if [ "$rc" -ne 0 ]; then
-            cat curl.err
-            case "$rc" in
-              43) echo "::error::curl exit 43 - the Authorization header was rejected before sending. CRON_SECRET almost certainly contains a line break. Re-save it in GitHub as a single line." ;;
-              6)  echo "::error::curl exit 6 - could not resolve the host in PICKEM_SITE_URL." ;;
-              7)  echo "::error::curl exit 7 - could not connect. Check PICKEM_SITE_URL points at the deployed site." ;;
-              28) echo "::error::curl exit 28 - request timed out after 60s." ;;
-              *)  echo "::error::curl failed with exit $rc." ;;
-            esac
-            exit 1
-          fi
-
-          echo "HTTP $http"
-          cat response.json
-          echo
-
-          # "notified" counts players the sweep matched. On a dry run that is
-          # who WOULD be pinged -- reading it as a send is the obvious trap.
-          if [ "$DRY_RUN" = "1" ] && [ "$http" = "200" ]; then
-            would=$(grep -oE '"notified":[[:space:]]*[0-9]+' response.json | head -1 | grep -oE '[0-9]+')
-            echo "::notice::DRY RUN - nothing was sent. ${would:-0} player(s) would have been pinged. Re-run with 'Report who would be pinged' UNCHECKED to send for real."
-          fi
-
-          if grep -qE '"windowWidened":[[:space:]]*true' response.json 2>/dev/null; then
-            echo "::warning::The sweep widened its window because the previous run was long ago - the schedule is being dropped. Reminders still go out, but earlier than intended. See docs/discord-reminders.md for a reliable scheduler."
-          fi
-
-          if [ "$http" = "401" ]; then
-            echo "::error::401 - CRON_SECRET here does not match the one set in Vercel. The two must be byte-identical."
-            exit 1
-          fi
-          if [ "$http" != "200" ]; then
-            echo "::error::Reminder sweep returned HTTP $http"
-            exit 1
-          fi
+          HANDOFF_FROM: ${{ inputs.handoffFrom }}
+          # Give Vercel a moment to finish deploying the endpoint change that
+          # triggered this push before the first sweep hits it.
+          INITIAL_DELAY_SECONDS: ${{ github.event_name == 'push' && '120' || '0' }}
+        run: bash .github/scripts/reminder-loop.sh

@@ -40,11 +40,20 @@ function envMinutes(name, fallback) {
  * lead, so fixing the cadence tightens the window automatically -- nothing to
  * reconfigure. A missing sweep log (migration not yet run) falls back to the
  * fixed lead rather than failing the sweep.
+ *
+ * A caller that KNOWS its cadence says so with `?nextSweepMinutes=N` ("I will
+ * sweep again within N minutes"), and that replaces the guess. This matters
+ * for the workflow loop: it deliberately goes quiet between game days, so the
+ * gap since the last sweep is often days -- and guessing from that would widen
+ * to the 6-hour cap and ping hours early on the first sweep of every slate.
+ * The guess only ever predicted the next gap; a caller that knows the next gap
+ * is strictly better information.
  */
-async function resolveWindow() {
+async function resolveWindow(nextSweepMinutes = null) {
   const lead = envMinutes('REMINDER_LEAD_MINUTES', DEFAULT_LEAD_MINUTES);
   const max = Math.max(lead, envMinutes('REMINDER_MAX_LEAD_MINUTES', DEFAULT_MAX_LEAD_MINUTES));
 
+  // Read either way: in caller mode it is only a diagnostic, but a useful one.
   let gapMinutes = null;
   try {
     const [row] = await sql`
@@ -56,8 +65,50 @@ async function resolveWindow() {
     console.warn('Sweep log unavailable (run sql/002_reminder_sweeps.sql):', e.message);
   }
 
-  const needed = gapMinutes === null ? lead : Math.ceil(gapMinutes * 1.5);
-  return { lead, max, gapMinutes, minutes: Math.min(Math.max(lead, needed), max) };
+  let needed;
+  let source;
+  if (nextSweepMinutes !== null) {
+    // Any interval shorter than the lead already guarantees every game is
+    // caught -- a game enters the window at least one sweep before it locks --
+    // so only a declared cadence slower than the lead needs widening.
+    needed = nextSweepMinutes;
+    source = 'caller';
+  } else {
+    needed = gapMinutes === null ? lead : Math.ceil(gapMinutes * 1.5);
+    source = 'history';
+  }
+
+  return { lead, max, gapMinutes, source, minutes: Math.min(Math.max(lead, needed), max) };
+}
+
+/** `?nextSweepMinutes=N` -> N, or null when absent or not a positive number. */
+function parseNextSweepMinutes(url) {
+  const raw = url.searchParams.get('nextSweepMinutes');
+  if (raw === null || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.ceil(n) : null;
+}
+
+/**
+ * Earliest kickoff still ahead in a counted week. The workflow loop reads this
+ * to decide whether to stay awake; it is not used to pick who gets pinged.
+ * Failure here must never fail the sweep -- null tells the loop "unknown",
+ * which it treats as "stay awake".
+ */
+async function findNextKickoff() {
+  try {
+    const [row] = await sql`
+      SELECT MIN(kickoff_at) AS next_kickoff
+      FROM games
+      WHERE season = ${SEASON}
+        AND week >= ${SCORING_MIN_WEEK}
+        AND kickoff_at > NOW()
+    `;
+    return row?.next_kickoff ? new Date(row.next_kickoff).toISOString() : null;
+  } catch (e) {
+    console.warn('Could not look up next kickoff:', e.message);
+    return null;
+  }
 }
 
 export default async function handler(req, res) {
@@ -86,7 +137,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const window = await resolveWindow();
+    const window = await resolveWindow(parseNextSweepMinutes(url));
     const lead = window.minutes;
 
     // Opted-in players x games locking soon, minus anything already picked and
@@ -178,14 +229,20 @@ export default async function handler(req, res) {
       }
     }
 
+    const nextKickoffAt = await findNextKickoff();
+
     return res.status(200).json({
       dryRun,
       leadMinutes: lead,
       configuredLeadMinutes: window.lead,
+      // 'caller' when the scheduler declared its cadence, 'history' when the
+      // window was inferred from the gap since the last sweep.
+      windowSource: window.source,
       // How long since the last real sweep, and whether that forced the window
       // wider than configured. A widened window is the scheduler under-running.
       minutesSinceLastSweep: window.gapMinutes === null ? null : Math.round(window.gapMinutes),
       windowWidened: lead > window.lead,
+      nextKickoffAt,
       candidates: rows.length,
       notified: sent.length,
       sent,
